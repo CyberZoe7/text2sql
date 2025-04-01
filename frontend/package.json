@@ -1,0 +1,17 @@
+{
+  "name": "text2sql-frontend",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "serve": "vue-cli-service serve",
+    "build": "vue-cli-service build"
+  },
+  "dependencies": {
+    "axios": "^0.21.1",
+    "vue": "^3.2.0",
+    "vue-router": "^4.5.0"
+  },
+  "devDependencies": {
+    "@vue/cli-service": "~4.5.0"
+  }
+}
