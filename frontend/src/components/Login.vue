@@ -25,8 +25,11 @@
           />
         </div>
         <div class="grid-buttons">
-        <button type="submit" class="login-btn">登录</button>
-        <button type="button" class="Register_btn" @click="ToRegister">注册</button>
+          <button type="submit" class="login-btn">登录</button>
+          <button type="button" class="Register_btn" @click="toRegister">注册</button>
+        </div>
+        <div class="extra-buttons">
+          <button type="button" class="forgot-btn" @click="toForgotPassword">忘记密码？</button>
         </div>
         <div v-if="errorMessage" class="error-message">{{ errorMessage }}</div>
       </form>
@@ -35,8 +38,8 @@
 </template>
 
 <script>
-import { useRouter } from 'vue-router'; // 引入 useRouter
-import axios from "axios"; // 引入 axios 进行 HTTP 请求
+import axios from "axios";
+
 export default {
   name: "Login",
   data() {
@@ -46,7 +49,6 @@ export default {
       errorMessage: "",
     };
   },
-
   methods: {
     // 处理登录功能
     async handleLogin() {
@@ -54,16 +56,14 @@ export default {
         this.errorMessage = "用户名和密码不能为空";
         return;
       }
-
       try {
         const response = await axios.post("http://10.135.9.41:8000/api/login", {
           username: this.username,
           password: this.password,
         });
-
         if (response.data.success) {
           this.errorMessage = "";
-          this.$router.push("/query");  // 登录成功后跳转到 Query 页面
+          this.$router.push("/query"); // 登录成功后跳转到 Query 页面
         } else {
           this.errorMessage = "用户名或密码错误！";
         }
@@ -71,15 +71,15 @@ export default {
         this.errorMessage = "登录请求失败，请稍后再试！";
       }
     },
-    ToRegister(){
+    toRegister() {
       this.$router.push("/register");
+    },
+    toForgotPassword() {
+      this.$router.push("/forgot-password");
     }
   },
 };
-
 </script>
-
-
 
 <style scoped>
 #app {
@@ -89,7 +89,7 @@ export default {
 }
 
 .login-container {
-  height: 300px;
+  height: auto;
   width: 420px;
   margin: 0 auto;
   padding: 20px;
@@ -123,8 +123,11 @@ h2 {
   display: grid;
   grid-template-columns: repeat(2, auto); /* 两列自动宽度 */
   gap: 10px;
+  margin-bottom: 10px;
 }
-button.login-btn {
+
+button.login-btn,
+button.Register_btn{
   width: 100%;
   padding: 10px;
   background-color: #42b983;
@@ -133,24 +136,24 @@ button.login-btn {
   border-radius: 4px;
   cursor: pointer;
 }
+button.forgot-btn {
+    background-color: transparent; /* 设置背景为透明 */
+    border: none; /* 移除边框 */
+    color: #000; /* 设置文本颜色，可以根据需要调整 */
+    font-size: 16px; /* 设置字体大小，可以根据需要调整 */
+    cursor: pointer; /* 鼠标悬停时显示手型指针 */
+    padding: 0; /* 移除默认的内边距 */
+}
 
-button.login-btn:hover {
+button.login-btn:hover,
+button.Register_btn:hover{
   background-color: #3e9c7b;
 }
 
-button.Register_btn {
-  width: 100%;
-  padding: 10px;
-  background-color: #42b983;
-  color: white;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
+.extra-buttons {
+  margin-bottom: 10px;
 }
 
-button.Register_btn:hover {
-  background-color: #3e9c7b;
-}
 .error-message {
   margin-top: 10px;
   color: red;

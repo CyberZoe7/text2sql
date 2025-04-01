@@ -15,8 +15,8 @@ app = FastAPI(
 
 # 允许前端跨域请求（注意根据实际部署调整）
 origins = [
-    "http://localhost:8080",
-    "http://10.135.9.41:8080"
+    "http://localhost:8081",
+    "http://10.135.9.41:8081"
 ]
 app.add_middleware(
     CORSMiddleware,
@@ -42,6 +42,10 @@ class RegisterRequest(BaseModel):
 # 定义查询请求模型（保留原有功能）
 class QueryRequest(BaseModel):
     sentence: str
+
+class ForgotPasswordRequest(BaseModel):
+    username: str
+    new_password: str
 
 @app.post("/api/login")
 async def login_user(login: LoginRequest):
@@ -81,6 +85,29 @@ async def register_user(reg: RegisterRequest):
             return {"success": True}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"注册失败: {str(e)}")
+
+
+@app.post("/api/forgot-password")
+async def forgot_password(fp: ForgotPasswordRequest):
+    """
+    忘记密码功能：接收用户名和新密码，更新用户表中的密码
+    """
+    try:
+        with engine.connect() as conn:
+            # 检查用户是否存在
+            sql_check = text("SELECT * FROM 用户表 WHERE 用户名 = :username")
+            user = conn.execute(sql_check, {"username": fp.username}).fetchone()
+            if not user:
+                return {"success": False, "detail": "该用户名不存在"}
+
+            # 更新密码
+            sql_update = text("UPDATE 用户表 SET 密码 = :new_password WHERE 用户名 = :username")
+            conn.execute(sql_update, {"new_password": fp.new_password, "username": fp.username})
+            conn.commit()
+            return {"success": True}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"更新密码失败: {str(e)}")
+
 
 def get_sql_from_text(sentence: str) -> str:
     """
