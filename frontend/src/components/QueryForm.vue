@@ -111,7 +111,7 @@ h2 {
 
 /* 文本域 */
 textarea {
-  width: 100%;
+  width: 92%;
   padding: 12px;
   border: 1px solid #dcdfe6;
   border-radius: 4px;

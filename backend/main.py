@@ -2,9 +2,10 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 import requests
 import pandas as pd
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 from pydantic import BaseModel
 from config import DB_URL, TEXT2SQL_API_URL, TEXT2SQL_API_TOKEN
+
 
 app = FastAPI(
     title="基于Text2SQL的智能数据库查询系统",
@@ -14,8 +15,8 @@ app = FastAPI(
 
 # 允许前端跨域请求（注意根据实际部署调整）
 origins = [
-    "http://localhost:8081",
-    "http://10.135.9.41:8081"
+    "http://localhost:8080",
+    "http://10.135.9.41:8080"
 ]
 app.add_middleware(
     CORSMiddleware,
@@ -28,9 +29,58 @@ app.add_middleware(
 # 初始化数据库连接
 engine = create_engine(DB_URL)
 
-# 定义请求模型
+# 定义登录请求模型
+class LoginRequest(BaseModel):
+    username: str
+    password: str
+
+# 定义注册请求模型
+class RegisterRequest(BaseModel):
+    username: str
+    password: str
+
+# 定义查询请求模型（保留原有功能）
 class QueryRequest(BaseModel):
     sentence: str
+
+@app.post("/api/login")
+async def login_user(login: LoginRequest):
+    """
+    接收用户名和密码，查询数据库中的用户表验证登录
+    """
+    try:
+        with engine.connect() as conn:
+            # 使用参数化查询，防止SQL注入
+            sql = text("SELECT * FROM 用户表 WHERE 用户名 = :username AND 密码 = :password")
+            result = conn.execute(sql, {"username": login.username, "password": login.password}).fetchone()
+            if result:
+                return {"success": True}
+            else:
+                return {"success": False}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"数据库查询错误: {str(e)}")
+
+
+@app.post("/api/register")
+async def register_user(reg: RegisterRequest):
+    """
+    接收用户名和密码，注册新用户
+    """
+    try:
+        with engine.connect() as conn:
+            # 检查用户名是否已存在
+            sql_check = text("SELECT * FROM 用户表 WHERE 用户名 = :username")
+            existing = conn.execute(sql_check, {"username": reg.username}).fetchone()
+            if existing:
+                return {"success": False, "detail": "用户名已存在"}
+
+            # 插入新用户记录
+            sql_insert = text("INSERT INTO 用户表 (用户名, 密码) VALUES (:username, :password)")
+            conn.execute(sql_insert, {"username": reg.username, "password": reg.password})
+            conn.commit()  # 提交事务
+            return {"success": True}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"注册失败: {str(e)}")
 
 def get_sql_from_text(sentence: str) -> str:
     """

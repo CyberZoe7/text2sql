@@ -1,8 +1,8 @@
 <template>
-  <div id="app">
-    <div class="login-container">
-      <h2>登录</h2>
-      <form @submit.prevent="handleLogin">
+  <div id="register">
+    <div class="register-container">
+      <h2>注册</h2>
+      <form @submit.prevent="handleRegister">
         <div class="input-group">
           <label for="username">用户名:</label>
           <input
@@ -24,107 +24,85 @@
             required
           />
         </div>
-        <div class="grid-buttons">
-        <button type="submit" class="login-btn">登录</button>
-        <button type="button" class="Register_btn" @click="ToRegister">注册</button>
-        </div>
+
+        <button type="submit" class="register-btn">注册</button>
+
         <div v-if="errorMessage" class="error-message">{{ errorMessage }}</div>
+        <div v-if="successMessage" class="success-message">{{ successMessage }}</div>
       </form>
     </div>
   </div>
 </template>
 
 <script>
-import { useRouter } from 'vue-router'; // 引入 useRouter
-import axios from "axios"; // 引入 axios 进行 HTTP 请求
+import axios from "axios";
+
 export default {
-  name: "Login",
+  name: "Register",
   data() {
     return {
       username: "",
       password: "",
       errorMessage: "",
+      successMessage: ""
     };
   },
-
   methods: {
-    // 处理登录功能
-    async handleLogin() {
+    async handleRegister() {
+      this.errorMessage = "";
+      this.successMessage = "";
       if (!this.username || !this.password) {
         this.errorMessage = "用户名和密码不能为空";
         return;
       }
-
       try {
-        const response = await axios.post("http://10.135.9.41:8000/api/login", {
+        const response = await axios.post("http://10.135.9.41:8000/api/register", {
           username: this.username,
           password: this.password,
         });
-
         if (response.data.success) {
-          this.errorMessage = "";
-          this.$router.push("/query");  // 登录成功后跳转到 Query 页面
+          this.successMessage = "注册成功，请登录！";
+          // 可选择自动跳转到登录页面
+          // this.$router.push("/login");
         } else {
-          this.errorMessage = "用户名或密码错误！";
+          this.errorMessage = response.data.detail || "注册失败";
         }
       } catch (error) {
-        this.errorMessage = "登录请求失败，请稍后再试！";
+        this.errorMessage = error.response ? error.response.data.detail : error.message;
       }
     },
-    ToRegister(){
-      this.$router.push("/register");
-    }
   },
 };
-
 </script>
 
-
-
 <style scoped>
-#app {
-  font-family: Avenir, Helvetica, Arial, sans-serif;
-  text-align: center;
-  margin-top: 50px;
-}
-
-.login-container {
-  height: 300px;
-  width: 420px;
-  margin: 0 auto;
+.register-container {
+  width: 400px;
+  margin: 50px auto;
   padding: 20px;
   border: 1px solid #ddd;
   border-radius: 8px;
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
 }
-
 h2 {
   margin-bottom: 20px;
+  text-align: center;
 }
-
 .input-group {
   margin-bottom: 20px;
   text-align: left;
 }
-
 .input-group label {
   display: block;
   margin-bottom: 5px;
 }
-
 .input-group input {
   width: 96%;
   padding: 8px;
   border: 1px solid #ddd;
   border-radius: 4px;
 }
-
-.grid-buttons {
-  display: grid;
-  grid-template-columns: repeat(2, auto); /* 两列自动宽度 */
-  gap: 10px;
-}
-button.login-btn {
+button.register-btn {
   width: 100%;
   padding: 10px;
   background-color: #42b983;
@@ -133,26 +111,15 @@ button.login-btn {
   border-radius: 4px;
   cursor: pointer;
 }
-
-button.login-btn:hover {
-  background-color: #3e9c7b;
-}
-
-button.Register_btn {
-  width: 100%;
-  padding: 10px;
-  background-color: #42b983;
-  color: white;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-}
-
-button.Register_btn:hover {
+button.register-btn:hover {
   background-color: #3e9c7b;
 }
 .error-message {
   margin-top: 10px;
   color: red;
+}
+.success-message {
+  margin-top: 10px;
+  color: green;
 }
 </style>
