@@ -1,0 +1,9 @@
+fastapi
+uvicorn
+jinja2
+requests
+pandas
+sqlalchemy
+mysql-connector-python
+python-multipart
+fastapi[all]
