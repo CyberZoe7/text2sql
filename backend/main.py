@@ -14,8 +14,11 @@ app = FastAPI(
 # 允许前端跨域请求（注意根据实际部署调整）
 origins = [
     "http://localhost:8080",
-    "http://10.135.38.13:8080"
+    "http://10.135.38.13:8080",
+    "https://localhost:8080",
+    "https://10.135.38.13:8080"
 ]
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
@@ -156,3 +159,14 @@ def query_database(query: QueryRequest):
         return {"sql": sql_statement, "headers": headers, "result": result}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(
+        "main:app",
+        host="10.135.38.13",
+        port=443,  # HTTPS 的默认端口
+        ssl_certfile="server.crt",  # 证书文件路径
+        ssl_keyfile="server.key",   # 私钥文件路径
+        reload=True
+    )
