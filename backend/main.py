@@ -48,6 +48,7 @@ class ForgotPasswordRequest(BaseModel):
     username: str
     new_password: str
 
+# 后端修改部分
 @app.post("/api/login")
 async def login_user(login: LoginRequest):
     """
@@ -55,11 +56,15 @@ async def login_user(login: LoginRequest):
     """
     try:
         with engine.connect() as conn:
-            # 使用参数化查询，防止SQL注入
-            sql = text("SELECT * FROM 用户表 WHERE 用户名 = :username AND 密码 = :password")
+            # 修改SQL查询包含权限字段
+            sql = text("SELECT 用户名, 权限 FROM 用户表 WHERE 用户名 = :username AND 密码 = :password")
             result = conn.execute(sql, {"username": login.username, "password": login.password}).fetchone()
             if result:
-                return {"success": True}
+                # 返回权限字段
+                return {
+                    "success": True,
+                    "permission": result.权限  # 根据实际数据库字段名称调整
+                }
             else:
                 return {"success": False}
     except Exception as e:

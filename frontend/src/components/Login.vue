@@ -62,12 +62,20 @@ async handleLogin() {
       password: this.password,
     });
     if (response.data.success) {
-      this.errorMessage = "";
-      // 通过路由参数传递用户名
-      this.$router.push({
-        path: "/query",
-        query: { username: this.username }
-      });
+        this.errorMessage = "";
+        // 添加权限处理
+        const userPermission = response.data.permission;
+
+        // 使用本地存储保存权限（可选）
+        localStorage.setItem('userPermission', userPermission);
+
+        this.$router.push({
+          path: "/query",
+          query: {
+            username: this.username,
+            permission: userPermission  // 通过路由传递权限
+          }
+        });
     } else {
       this.errorMessage = "用户名或密码错误！";
     }

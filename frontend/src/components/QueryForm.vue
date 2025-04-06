@@ -1,9 +1,11 @@
 <template>
   <div class="container">
-    <!-- 新增用户名显示 -->
+    <!-- 新增用户信息显示，用户名后面显示权限 -->
     <div class="user-info">
       <span class="username-icon">👤</span>
-      <span class="username-text">{{ username }}</span>
+      <span class="username-text">
+        {{ username }} (权限：{{ permission }})
+      </span>
     </div>
     <div class="card">
       <h2>基于 Text2SQL 的智能数据库查询系统</h2>
@@ -38,11 +40,17 @@
 
 <script>
 import { ref, computed } from 'vue';
-import { useRoute } from 'vue-router'; // 新增路由导入
+import { useRoute } from 'vue-router'; // 导入 useRoute 获取路由参数
 import axios from 'axios';
-import {QUERY_URL} from "@/api";
+import { QUERY_URL } from "@/api";
+
 export default {
   setup() {
+    // 从路由中读取 username 和 permission 参数
+    const route = useRoute();
+    const username = ref(route.query.username || '未登录用户');
+    const permission = ref(route.query.permission || '未知');
+
     const sentence = ref('');
     const result = ref(null);
     const loading = ref(false);
@@ -74,12 +82,10 @@ export default {
         loading.value = false;
       }
     };
-    const route = useRoute();
-    // 新增用户名响应式数据（示例数据，可根据实际情况从store或localStorage获取）
-    const username = ref(route.query.username || '未登录用户');
 
     return {
       username,
+      permission,
       sentence,
       result,
       loading,
@@ -87,7 +93,6 @@ export default {
       tableHeaders,
       submitQuery
     };
-    // 新增用户名响应式数据（示例数据，可根据实际情况从store或localStorage获取）
   }
 };
 </script>
@@ -117,8 +122,6 @@ export default {
   color: #42b983;
   font-weight: 500;
 }
-
-
 
 /* 页面容器居中并添加背景色 */
 .container {
