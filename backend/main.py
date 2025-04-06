@@ -5,8 +5,6 @@ import pandas as pd
 from sqlalchemy import create_engine, text
 from pydantic import BaseModel
 from config import DB_URL, TEXT2SQL_API_URL, TEXT2SQL_API_TOKEN
-
-
 app = FastAPI(
     title="基于Text2SQL的智能数据库查询系统",
     description="支持自然语言查询转换为SQL，执行查询并返回结果",
@@ -15,8 +13,8 @@ app = FastAPI(
 
 # 允许前端跨域请求（注意根据实际部署调整）
 origins = [
-    "http://localhost:8081",
-    "http://10.135.9.41:8081"
+    "http://localhost:8080",
+    "http://10.135.38.13:8080"
 ]
 app.add_middleware(
     CORSMiddleware,
