@@ -51,26 +51,30 @@ export default {
   },
   methods: {
     // 处理登录功能
-    async handleLogin() {
-      if (!this.username || !this.password) {
-        this.errorMessage = "用户名和密码不能为空";
-        return;
-      }
-      try {
-        const response = await axios.post(LOGIN_URL, {
-          username: this.username,
-          password: this.password,
-        });
-        if (response.data.success) {
-          this.errorMessage = "";
-          this.$router.push("/query"); // 登录成功后跳转到 Query 页面
-        } else {
-          this.errorMessage = "用户名或密码错误！";
-        }
-      } catch (error) {
-        this.errorMessage = "登录请求失败，请稍后再试！";
-      }
-    },
+async handleLogin() {
+  if (!this.username || !this.password) {
+    this.errorMessage = "用户名和密码不能为空";
+    return;
+  }
+  try {
+    const response = await axios.post(LOGIN_URL, {
+      username: this.username,
+      password: this.password,
+    });
+    if (response.data.success) {
+      this.errorMessage = "";
+      // 通过路由参数传递用户名
+      this.$router.push({
+        path: "/query",
+        query: { username: this.username }
+      });
+    } else {
+      this.errorMessage = "用户名或密码错误！";
+    }
+  } catch (error) {
+    this.errorMessage = "登录请求失败，请稍后再试！";
+    }
+  },
     toRegister() {
       this.$router.push("/register");
     },

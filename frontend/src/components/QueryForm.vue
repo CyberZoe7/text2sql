@@ -1,5 +1,10 @@
 <template>
   <div class="container">
+    <!-- 新增用户名显示 -->
+    <div class="user-info">
+      <span class="username-icon">👤</span>
+      <span class="username-text">{{ username }}</span>
+    </div>
     <div class="card">
       <h2>基于 Text2SQL 的智能数据库查询系统</h2>
       <textarea
@@ -33,6 +38,7 @@
 
 <script>
 import { ref, computed } from 'vue';
+import { useRoute } from 'vue-router'; // 新增路由导入
 import axios from 'axios';
 import {QUERY_URL} from "@/api";
 export default {
@@ -68,8 +74,12 @@ export default {
         loading.value = false;
       }
     };
+    const route = useRoute();
+    // 新增用户名响应式数据（示例数据，可根据实际情况从store或localStorage获取）
+    const username = ref(route.query.username || '未登录用户');
 
     return {
+      username,
       sentence,
       result,
       loading,
@@ -77,11 +87,39 @@ export default {
       tableHeaders,
       submitQuery
     };
+    // 新增用户名响应式数据（示例数据，可根据实际情况从store或localStorage获取）
   }
 };
 </script>
 
 <style scoped>
+/* 新增用户信息样式 */
+.user-info {
+  position: absolute;
+  top: 20px;
+  left: 20px;
+  background: rgba(255, 255, 255, 0.9);
+  padding: 8px 15px;
+  border-radius: 25px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  z-index: 100;
+}
+
+.username-icon {
+  font-size: 16px;
+}
+
+.username-text {
+  font-size: 14px;
+  color: #42b983;
+  font-weight: 500;
+}
+
+
+
 /* 页面容器居中并添加背景色 */
 .container {
   display: flex;
