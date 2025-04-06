@@ -39,7 +39,7 @@
 
 <script>
 import axios from "axios";
-
+import { LOGIN_URL } from "@/api";
 export default {
   name: "Login",
   data() {
@@ -57,7 +57,7 @@ export default {
         return;
       }
       try {
-        const response = await axios.post("http://10.135.9.41:8000/api/login", {
+        const response = await axios.post(LOGIN_URL, {
           username: this.username,
           password: this.password,
         });

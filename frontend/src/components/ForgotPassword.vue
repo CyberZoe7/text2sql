@@ -47,7 +47,7 @@
 
 <script>
 import axios from "axios";
-
+import {FORGOT_PASSWORD_URL} from "@/api";
 export default {
   name: "ForgotPassword",
   data() {
@@ -75,7 +75,7 @@ export default {
       }
 
       try {
-        const response = await axios.post("http://10.135.9.41:8000/api/forgot-password", {
+        const response = await axios.post(FORGOT_PASSWORD_URL, {
           username: this.username,
           new_password: this.newPassword
         });

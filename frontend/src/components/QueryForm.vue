@@ -34,7 +34,7 @@
 <script>
 import { ref, computed } from 'vue';
 import axios from 'axios';
-
+import {QUERY_URL} from "@/api";
 export default {
   setup() {
     const sentence = ref('');
@@ -58,7 +58,7 @@ export default {
       }
       loading.value = true;
       try {
-        const response = await axios.post('http://10.135.9.41:8000/api/query', {
+        const response = await axios.post(QUERY_URL, {
           sentence: sentence.value
         });
         result.value = response.data;

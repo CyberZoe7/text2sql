@@ -36,7 +36,7 @@
 
 <script>
 import axios from "axios";
-
+import { REGISTER_URL } from "@/api";
 export default {
   name: "Register",
   data() {
@@ -56,7 +56,7 @@ export default {
         return;
       }
       try {
-        const response = await axios.post("http://10.135.9.41:8000/api/register", {
+        const response = await axios.post(REGISTER_URL, {
           username: this.username,
           password: this.password,
         });
