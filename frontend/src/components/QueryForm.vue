@@ -1,6 +1,6 @@
 <template>
   <div class="container">
-    <!-- 新增用户信息显示，用户名后面显示权限 -->
+    <!-- 用户信息显示 -->
     <div class="user-info">
       <span class="username-icon">👤</span>
       <span class="username-text">
@@ -15,6 +15,10 @@
         rows="4">
       </textarea>
       <button @click="submitQuery">查询</button>
+      <!-- 在查询按钮下显示响应时间 -->
+      <div v-if="responseTime !== null" class="response-time">
+        响应时间：{{ responseTime }} 毫秒
+      </div>
       <div v-if="loading" class="status loading">查询中...</div>
       <div v-if="error" class="status error">{{ error }}</div>
       <div v-if="result" class="result">
@@ -40,13 +44,13 @@
 
 <script>
 import { ref, computed } from 'vue';
-import { useRoute } from 'vue-router'; // 导入 useRoute 获取路由参数
+import { useRoute } from 'vue-router';
 import axios from 'axios';
 import { QUERY_URL } from "@/api";
 
 export default {
   setup() {
-    // 从路由中读取 username 和 permission 参数
+    // 从路由中获取 username 和 permission 参数
     const route = useRoute();
     const username = ref(route.query.username || '未登录用户');
     const permission = ref(route.query.permission || '未知');
@@ -55,6 +59,8 @@ export default {
     const result = ref(null);
     const loading = ref(false);
     const error = ref('');
+    // 新增响应时间，初始为 null
+    const responseTime = ref(null);
 
     const tableHeaders = computed(() => {
       if (result.value && result.value.headers && result.value.headers.length > 0) {
@@ -66,11 +72,14 @@ export default {
     const submitQuery = async () => {
       error.value = '';
       result.value = null;
+      responseTime.value = null;
       if (!sentence.value.trim()) {
         error.value = '请输入查询需求';
         return;
       }
       loading.value = true;
+      // 记录开始时间（毫秒）
+      const startTime = Date.now();
       try {
         const response = await axios.post(QUERY_URL, {
           sentence: sentence.value
@@ -80,6 +89,9 @@ export default {
         error.value = err.response ? err.response.data.detail : err.message;
       } finally {
         loading.value = false;
+        // 计算响应时间
+        const endTime = Date.now();
+        responseTime.value = endTime - startTime;
       }
     };
 
@@ -91,6 +103,7 @@ export default {
       loading,
       error,
       tableHeaders,
+      responseTime,
       submitQuery
     };
   }
@@ -98,7 +111,7 @@ export default {
 </script>
 
 <style scoped>
-/* 新增用户信息样式 */
+/* 用户信息样式 */
 .user-info {
   position: absolute;
   top: 20px;
@@ -123,7 +136,7 @@ export default {
   font-weight: 500;
 }
 
-/* 页面容器居中并添加背景色 */
+/* 页面容器 */
 .container {
   display: flex;
   align-items: center;
@@ -176,6 +189,13 @@ button {
 
 button:hover {
   background-color: #369870;
+}
+
+/* 响应时间样式 */
+.response-time {
+  font-size: 14px;
+  color: #666;
+  margin-bottom: 15px;
 }
 
 /* 状态提示 */
