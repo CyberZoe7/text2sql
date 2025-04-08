@@ -24,6 +24,7 @@
       <div v-if="result" class="result">
         <h3>生成的 SQL 语句:</h3>
         <pre>{{ result.sql }}</pre>
+        <button class="download-btn" @click="exportToExcel">下载Excel结果</button>
         <h3>查询结果:</h3>
         <table>
           <thead>
@@ -47,6 +48,7 @@ import { ref, computed } from 'vue';
 import { useRoute } from 'vue-router';
 import axios from 'axios';
 import { QUERY_URL } from "@/api";
+import * as XLSX from 'xlsx'; // 新增导入
 
 export default {
   setup() {
@@ -97,8 +99,25 @@ export default {
         responseTime.value = endTime - startTime;
       }
     };
+    // 新增导出方法
+    const exportToExcel = () => {
+      if (!result.value || !tableHeaders.value.length) return;
+
+      const worksheetData = [
+        tableHeaders.value,
+        ...result.value.result.map(row =>
+          tableHeaders.value.map(header => row[header])
+        )
+      ];
+
+      const worksheet = XLSX.utils.aoa_to_sheet(worksheetData);
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, "查询结果");
+      XLSX.writeFile(workbook, `查询结果_${new Date().toLocaleString()}.xlsx`);
+    };
 
     return {
+      exportToExcel,
       username,
       permission,
       sentence,
@@ -249,5 +268,20 @@ thead {
 
 tbody tr:nth-child(even) {
   background: #fbfbfb;
+}
+/* 新增下载按钮样式（可选） */
+.download-btn {
+  margin: 15px 0;
+  background-color: #42b983;
+  color: white;
+  padding: 10px 20px;
+  border-radius: 4px;
+  border: none;
+  cursor: pointer;
+  transition: background-color 0.3s;
+}
+
+.download-btn:hover {
+  background-color: #369870;
 }
 </style>
