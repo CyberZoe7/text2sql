@@ -5,6 +5,7 @@ import pandas as pd
 from sqlalchemy import create_engine, text
 from pydantic import BaseModel
 from config import DB_URL, TEXT2SQL_API_URL, TEXT2SQL_API_TOKEN
+
 app = FastAPI(
     title="基于Text2SQL的智能数据库查询系统",
     description="支持自然语言查询转换为SQL，执行查询并返回结果",
@@ -30,24 +31,30 @@ app.add_middleware(
 # 初始化数据库连接
 engine = create_engine(DB_URL)
 
+
 # 定义登录请求模型
 class LoginRequest(BaseModel):
     username: str
     password: str
+
 
 # 定义注册请求模型
 class RegisterRequest(BaseModel):
     username: str
     password: str
 
-# 定义查询请求模型（保留原有功能）
+
+# 定义查询请求模型，新增 permission 字段
 class QueryRequest(BaseModel):
     sentence: str
+    permission: int
+
+
 class ForgotPasswordRequest(BaseModel):
     username: str
     new_password: str
 
-# 后端修改部分
+
 @app.post("/api/login")
 async def login_user(login: LoginRequest):
     """
@@ -55,14 +62,12 @@ async def login_user(login: LoginRequest):
     """
     try:
         with engine.connect() as conn:
-            # 修改SQL查询包含权限字段
             sql = text("SELECT 用户名, 权限 FROM 管理员信息 WHERE 用户名 = :username AND 密码 = :password")
             result = conn.execute(sql, {"username": login.username, "password": login.password}).fetchone()
             if result:
-                # 返回权限字段
                 return {
                     "success": True,
-                    "permission": result.权限  # 根据实际数据库字段名称调整
+                    "permission": result.权限
                 }
             else:
                 return {"success": False}
@@ -77,16 +82,14 @@ async def register_user(reg: RegisterRequest):
     """
     try:
         with engine.connect() as conn:
-            # 检查用户名是否已存在
             sql_check = text("SELECT * FROM 管理员信息 WHERE 用户名 = :username")
             existing = conn.execute(sql_check, {"username": reg.username}).fetchone()
             if existing:
                 return {"success": False, "detail": "用户名已存在"}
 
-            # 插入新用户记录
             sql_insert = text("INSERT INTO 管理员信息 (用户名, 密码) VALUES (:username, :password)")
             conn.execute(sql_insert, {"username": reg.username, "password": reg.password})
-            conn.commit()  # 提交事务
+            conn.commit()
             return {"success": True}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"注册失败: {str(e)}")
@@ -99,13 +102,11 @@ async def forgot_password(fp: ForgotPasswordRequest):
     """
     try:
         with engine.connect() as conn:
-            # 检查用户是否存在
             sql_check = text("SELECT * FROM 管理员信息 WHERE 用户名 = :username")
             user = conn.execute(sql_check, {"username": fp.username}).fetchone()
             if not user:
                 return {"success": False, "detail": "该用户名不存在"}
 
-            # 更新密码
             sql_update = text("UPDATE 管理员信息 SET 密码 = :new_password WHERE 用户名 = :username")
             conn.execute(sql_update, {"new_password": fp.new_password, "username": fp.username})
             conn.commit()
@@ -143,44 +144,64 @@ def get_sql_from_text(sentence: str) -> str:
         raise HTTPException(status_code=500, detail="调用 Text2SQL 接口失败")
     data = response.json()
     sql_statement = data["choices"][0]["message"]["content"]
-    # 对返回的 SQL 做简单替换，确保表名格式正确
+    # 保证返回的 SQL 格式正确（如存在替换情况，可根据实际情况做调整）
     sql_statement = sql_statement.replace("'商品信息表'", "商品信息表")
     return sql_statement
+
 
 @app.post("/api/query")
 def query_database(query: QueryRequest):
     """
     接收自然语言查询，将其转换为 SQL 并执行查询，返回 SQL 语句和查询结果。
-    如果执行过程出现异常，将最多重试 3 次，直到成功返回结果为止。
+    权限判断：
+      - permission == 1 ：执行所有 SQL；
+      - permission == 2 ：只允许查询产品表（表名 "产品"），如果 SQL 中引用了其他表则立即返回权限不足；
+      - 其他权限：直接返回权限不足，无法查询。
     """
+    # 先判断传入的权限是否为允许的值（1 或 2）
+    if query.permission not in [1, 2]:
+        raise HTTPException(status_code=403, detail="权限不足，无法查询")
+
     max_attempts = 3
     last_error = None
 
     for attempt in range(max_attempts):
         try:
             sql_statement = get_sql_from_text(query.sentence)
+
+            # 如果权限为2，则只允许查询产品表，若 SQL 中引用了其他表，立即返回权限不足
+            if query.permission == 2:
+                allowed_table = "产品"
+                tables = ["部门", "员工", "客户", "产品", "订单", "订单明细", "供应商", "采购订单", "采购明细", "管理员信息"]
+                found_tables = [t for t in tables if t in sql_statement]
+                if found_tables != [allowed_table]:
+                    # 检查到权限不足时，直接返回，不进行重试
+                    raise HTTPException(status_code=403, detail="权限不足，只允许查询产品表")
+
             # 使用 Pandas 执行 SQL 查询，得到 DataFrame
             df = pd.read_sql(sql_statement, engine)
-            # 将 DataFrame 转换为字典格式返回
             result = df.to_dict(orient="records")
-            # 获取真实的列名
             headers = df.columns.tolist()
             return {"sql": sql_statement, "headers": headers, "result": result}
+
+        except HTTPException as he:
+            # 权限错误直接返回，不再重试
+            raise he
         except Exception as e:
             last_error = e
-            # 可选：打印调试信息
             print(f"Attempt {attempt + 1} failed: {e}")
 
-    # 如果达到最大重试次数仍然失败，则返回错误
     raise HTTPException(status_code=500, detail=str(last_error))
+
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(
         "main:app",
         host="10.135.11.183",
-        port=443,  # HTTPS 的默认端口
+        port=443,  # HTTPS 默认端口
         ssl_certfile="server.crt",  # 证书文件路径
-        ssl_keyfile="server.key",   # 私钥文件路径
+        ssl_keyfile="server.key",  # 私钥文件路径
         reload=True
     )

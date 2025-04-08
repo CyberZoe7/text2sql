@@ -11,7 +11,7 @@
       <h2>基于 Text2SQL 的智能数据库查询系统</h2>
       <textarea
         v-model="sentence"
-        placeholder="请输入查询需求，例如：我想查找商品信息表的所有信息"
+        placeholder="请输入查询需求，例如：我想查找产品表的所有信息"
         rows="4">
       </textarea>
       <button @click="submitQuery">查询</button>
@@ -53,7 +53,8 @@ export default {
     // 从路由中获取 username 和 permission 参数
     const route = useRoute();
     const username = ref(route.query.username || '未登录用户');
-    const permission = ref(route.query.permission || '未知');
+    // permission 初始值为字符串，如果需要做数值判断，转换为数值
+    const permission = ref(route.query.permission || 0);
 
     const sentence = ref('');
     const result = ref(null);
@@ -81,8 +82,10 @@ export default {
       // 记录开始时间（毫秒）
       const startTime = Date.now();
       try {
+        // 注意将 permission 参数（转换为数字）传递给后端
         const response = await axios.post(QUERY_URL, {
-          sentence: sentence.value
+          sentence: sentence.value,
+          permission: Number(permission.value)
         });
         result.value = response.data;
       } catch (err) {
