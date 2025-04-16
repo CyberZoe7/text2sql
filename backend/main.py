@@ -120,12 +120,22 @@ def get_sql_from_text(sentence: str) -> str:
     调用外部 Text2SQL 接口将自然语言转换为 SQL 语句
     """
     # 固定补充语句，确保返回纯 SQL
-    sentence2 = "(要保证你输出的sql是基于我的数据库的，并且你输出的sql要保证一定能执行不出错，你的输出sql语句将直接用于执行，请只给出sql语句不要说其他多余的话，只能输出可以直接执行的sql，不能有任何前缀，错误输出示例：sql：SELECT * FROM 产品，正确输出示例例如：SELECT * FROM 产品)"
+    try:
+        with open("prompt_template.txt", "r", encoding="utf-8") as f:
+            template = f.read().strip()  # 读取并去除首尾空白
+    except FileNotFoundError:
+        raise HTTPException(status_code=500, detail="提示模板文件未找到")
+
+    # 补充动态语句
+    sentence2 = "。(要保证你输出的sql是基于我的数据库的，并且你输出的sql要保证一定能执行不出错，你的输出sql语句将直接用于执行，请只给出sql语句不要说其他多余的话，只能输出可以直接执行的sql，不能有任何前缀，错误输出示例：sql：SELECT * FROM 产品，正确输出示例例如：SELECT * FROM 产品)"
+
+    # 构造完整内容
+    full_content = f"{template}{sentence}{sentence2}"
     payload = {
         "model": "deepseek-ai/DeepSeek-R1-Distill-Qwen-7B",
         "messages": [{
             "role": "user",
-            "content": "你是一个MySQL专家，擅长Text2SQL。以下是我数据库的表，表名：部门（部门编号, 部门名称, 部门位置）；员工（员工编号, 姓名, 性别（男为M，女为F）, 出生日期, 联系电话, 电子邮件, 部门编号）；客户（客户编号, 客户名称, 联系人, 联系电话, 地址）；产品（产品编号, 产品名称, 产品描述, 单价, 库存数量）；订单（订单编号, 客户编号, 订单日期, 订单总额）；订单明细（明细编号, 订单编号, 产品编号, 数量, 单价）；供应商（供应商编号, 供应商名称, 联系人, 联系电话, 地址）；采购订单（采购订单编号, 供应商编号, 订单日期, 订单总额）；采购明细（明细编号, 采购订单编号, 产品编号, 数量, 单价）；管理员信息（管理员编号, 用户名, 密码, 权限），" + sentence + sentence2
+            "content": full_content
         }],
         "stream": False,
         "max_tokens": 512,
@@ -144,8 +154,14 @@ def get_sql_from_text(sentence: str) -> str:
         raise HTTPException(status_code=500, detail="调用 Text2SQL 接口失败")
     data = response.json()
     sql_statement = data["choices"][0]["message"]["content"]
-    # 保证返回的 SQL 格式正确（如存在替换情况，可根据实际情况做调整）
-    sql_statement = sql_statement.replace("'商品信息表'", "商品信息表")
+
+
+    # 添加：去除所有 "sql" 和 "```"
+    sql_statement = sql_statement.replace("sql", "").replace("SQL", "")
+    sql_statement = sql_statement.replace("```", "")
+    sql_statement = sql_statement.replace("；", "")
+    sql_statement = sql_statement.strip()  # 去除首尾空白
+
     return sql_statement
 
 
