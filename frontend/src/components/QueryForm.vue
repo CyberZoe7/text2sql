@@ -83,11 +83,11 @@ export default {
 
     // 常用查询模板示例数组（根据实际业务调整模板内容）
     const queryTemplates = ref([
-      "SELECT * FROM 产品",
       "SELECT 产品名称, 单价 FROM 产品 WHERE 库存数量 > 100",
       "SELECT * FROM 员工 WHERE 部门编号 = '1'",
-      "SELECT 客户名称, 联系电话 FROM 客户",
-      "SELECT * FROM 订单 WHERE 订单日期 BETWEEN '2023-01-01' AND '2023-12-31'"
+      "SELECT * FROM 订单 WHERE 订单日期 BETWEEN '2025-04-01' AND '2025-04-09'",
+      "我想知道所有男性员工的信息",
+      "我想知道所有的客户名称和联系电话",
     ]);
 
     // 点击常用模板时自动填充到查询输入框
