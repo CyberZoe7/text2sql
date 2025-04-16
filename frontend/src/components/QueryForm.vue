@@ -148,9 +148,11 @@ export default {
       "SELECT 产品名称, 单价 FROM 产品 WHERE 库存数量 > 100",
       "SELECT * FROM 员工 WHERE 部门编号 = '1'",
       "SELECT * FROM 订单 WHERE 订单日期 BETWEEN '2025-04-01' AND '2025-04-09'",
-      "我想知道男性员工中出生日期在1985-03-15后的人的信息",
+      "我想知道男性员工中出生日期在1985-03-15以后人的所有信息",
       "我想知道所有的客户名称和联系电话",
-      "我想知道所有产品的信息"
+      "我想知道所有产品的信息",
+      "I would like to know all the product information",
+      "I would like to know all the names and contact numbers of all customers",
     ]);
 
     // 点击常用模板时自动填充到查询输入框
