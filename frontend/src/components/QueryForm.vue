@@ -9,9 +9,20 @@
     </div>
     <div class="card">
       <h2>基于 Text2SQL 的智能数据库查询系统</h2>
+
+      <!-- 常用查询模板区域 -->
+      <div class="template-panel">
+        <h3>常用查询模板</h3>
+        <ul class="template-list">
+          <li v-for="(template, index) in queryTemplates" :key="index" @click="applyTemplate(template)">
+            {{ template }}
+          </li>
+        </ul>
+      </div>
+
       <textarea
         v-model="sentence"
-        placeholder="请输入查询需求，例如：我想查找产品表的所有信息"
+        placeholder="请输入查询需求，例如：我想查找商品信息表的所有信息"
         rows="4">
       </textarea>
       <button @click="submitQuery">查询</button>
@@ -48,21 +59,19 @@ import { ref, computed } from 'vue';
 import { useRoute } from 'vue-router';
 import axios from 'axios';
 import { QUERY_URL } from "@/api";
-import * as XLSX from 'xlsx'; // 新增导入
+import * as XLSX from 'xlsx';
 
 export default {
   setup() {
-    // 从路由中获取 username 和 permission 参数
+    // 从路由获取用户名和权限参数
     const route = useRoute();
     const username = ref(route.query.username || '未登录用户');
-    // permission 初始值为字符串，如果需要做数值判断，转换为数值
-    const permission = ref(route.query.permission || 0);
+    const permission = ref(route.query.permission || '未知');
 
     const sentence = ref('');
     const result = ref(null);
     const loading = ref(false);
     const error = ref('');
-    // 新增响应时间，初始为 null
     const responseTime = ref(null);
 
     const tableHeaders = computed(() => {
@@ -71,6 +80,20 @@ export default {
       }
       return [];
     });
+
+    // 常用查询模板示例数组（根据实际业务调整模板内容）
+    const queryTemplates = ref([
+      "SELECT * FROM 产品",
+      "SELECT 产品名称, 单价 FROM 产品 WHERE 库存数量 > 100",
+      "SELECT * FROM 员工 WHERE 部门编号 = '1'",
+      "SELECT 客户名称, 联系电话 FROM 客户",
+      "SELECT * FROM 订单 WHERE 订单日期 BETWEEN '2023-01-01' AND '2023-12-31'"
+    ]);
+
+    // 点击常用模板时自动填充到查询输入框
+    const applyTemplate = (template) => {
+      sentence.value = template;
+    };
 
     const submitQuery = async () => {
       error.value = '';
@@ -81,10 +104,9 @@ export default {
         return;
       }
       loading.value = true;
-      // 记录开始时间（毫秒）
       const startTime = Date.now();
       try {
-        // 注意将 permission 参数（转换为数字）传递给后端
+        // 将 permission 参数传递给后端 (如果后端需要校验)
         const response = await axios.post(QUERY_URL, {
           sentence: sentence.value,
           permission: Number(permission.value)
@@ -94,12 +116,12 @@ export default {
         error.value = err.response ? err.response.data.detail : err.message;
       } finally {
         loading.value = false;
-        // 计算响应时间
         const endTime = Date.now();
         responseTime.value = endTime - startTime;
       }
     };
-    // 新增导出方法
+
+    // 导出 Excel 的方法（保持原来逻辑）
     const exportToExcel = () => {
       if (!result.value || !tableHeaders.value.length) return;
 
@@ -117,7 +139,6 @@ export default {
     };
 
     return {
-      exportToExcel,
       username,
       permission,
       sentence,
@@ -126,7 +147,10 @@ export default {
       error,
       tableHeaders,
       responseTime,
-      submitQuery
+      queryTemplates,
+      applyTemplate,
+      submitQuery,
+      exportToExcel
     };
   }
 };
@@ -183,6 +207,40 @@ export default {
 h2 {
   margin-bottom: 20px;
   color: #333;
+}
+
+/* 常用查询模板区域 */
+.template-panel {
+  background: #f7f7f7;
+  padding: 15px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  margin-bottom: 15px;
+  text-align: left;
+}
+
+.template-panel h3 {
+  margin: 0 0 10px 0;
+  font-size: 16px;
+  color: #333;
+}
+
+.template-list {
+  list-style: none;
+  padding-left: 0;
+  margin: 0;
+}
+
+.template-list li {
+  cursor: pointer;
+  padding: 6px 10px;
+  border-radius: 4px;
+  transition: background 0.3s;
+  margin-bottom: 4px;
+}
+
+.template-list li:hover {
+  background: #e0f7f1;
 }
 
 /* 文本域 */
@@ -269,7 +327,8 @@ thead {
 tbody tr:nth-child(even) {
   background: #fbfbfb;
 }
-/* 新增下载按钮样式（可选） */
+
+/* 下载按钮样式 */
 .download-btn {
   margin: 15px 0;
   background-color: #42b983;

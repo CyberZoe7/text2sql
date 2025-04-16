@@ -15,9 +15,9 @@ app = FastAPI(
 # 允许前端跨域请求（注意根据实际部署调整）
 origins = [
     "http://localhost:8080",
-    "http://10.135.11.183:8080",
+    "http://10.135.11.48:8080",
     "https://localhost:8080",
-    "https://10.135.11.183:8080"
+    "https://10.135.11.48:8080"
 ]
 
 app.add_middleware(
@@ -199,7 +199,7 @@ if __name__ == "__main__":
 
     uvicorn.run(
         "main:app",
-        host="10.135.11.183",
+        host="10.135.11.48",
         port=443,  # HTTPS 默认端口
         ssl_certfile="server.crt",  # 证书文件路径
         ssl_keyfile="server.key",  # 私钥文件路径

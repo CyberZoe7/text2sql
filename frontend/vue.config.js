@@ -13,7 +13,7 @@ module.exports = {
     open: true,
     proxy: {
       '/api': {
-        target: 'https://10.135.11.183:443',
+        target: 'https://10.135.18.174:443',
         changeOrigin: true,
         secure: false  // 绕过后端自签名证书的校验
       }
