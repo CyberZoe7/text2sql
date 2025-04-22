@@ -148,6 +148,7 @@ export default {
       "SELECT 产品名称, 单价 FROM 产品 WHERE 库存数量 > 100",
       "SELECT * FROM 员工 WHERE 部门编号 = '1'",
       "SELECT * FROM 订单 WHERE 订单日期 BETWEEN '2025-04-01' AND '2025-04-09'",
+      "查询采购订单中明细总额大于10000.00的订单的产品名称和数量",
       "我想知道男性员工中出生日期在1985-03-15以后人的所有信息",
       "我想知道所有的客户名称和联系电话",
       "我想知道所有产品的信息",
@@ -247,8 +248,8 @@ export default {
       }
       chartType.value = type
       // 对于折线图和柱状图，必须有可统计的数值字段，否则提示用户
-      if ((type === 'line' || type === 'bar') && numericFields.value.length === 0) {
-        alert("结果中没有数值型数据，无法生成折线图/柱状图")
+      if ((type === 'line' || type === 'bar'||type === 'pie') && numericFields.value.length === 0) {
+        alert("结果中没有数值型数据，无法生成折线图/柱状图/饼图")
         return
       }
       showChartModal.value = true

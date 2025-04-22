@@ -4,7 +4,7 @@ import requests
 import pandas as pd
 from sqlalchemy import create_engine, text
 from pydantic import BaseModel
-from config import DB_URL, TEXT2SQL_API_URL, TEXT2SQL_API_TOKEN
+from config import DB_URL, TEXT2SQL_API_URL, TEXT2SQL_API_TOKEN,HOST_URL
 
 app = FastAPI(
     title="基于Text2SQL的智能数据库查询系统",
@@ -15,9 +15,9 @@ app = FastAPI(
 # 允许前端跨域请求（注意根据实际部署调整）
 origins = [
     "http://localhost:8080",
-    "http://10.135.11.48:8080",
+    f"http://{HOST_URL}:8080"
     "https://localhost:8080",
-    "https://10.135.11.48:8080"
+    f"https://{HOST_URL}:8080"
 ]
 
 app.add_middleware(
@@ -215,7 +215,7 @@ if __name__ == "__main__":
 
     uvicorn.run(
         "main:app",
-        host="10.135.11.48",
+        host=HOST_URL,
         port=443,  # HTTPS 默认端口
         ssl_certfile="server.crt",  # 证书文件路径
         ssl_keyfile="server.key",  # 私钥文件路径
