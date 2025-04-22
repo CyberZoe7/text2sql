@@ -1,3 +1,4 @@
+<!-- src/views/QueryForm.vue -->
 <template>
   <div class="container">
     <!-- 用户信息显示 -->
@@ -14,7 +15,11 @@
       <div class="template-panel">
         <h3>常用查询模板</h3>
         <ul class="template-list">
-          <li v-for="(template, index) in queryTemplates" :key="index" @click="applyTemplate(template)">
+          <li
+            v-for="(template, index) in queryTemplates"
+            :key="index"
+            @click="applyTemplate(template)"
+          >
             {{ template }}
           </li>
         </ul>
@@ -23,10 +28,9 @@
       <textarea
         v-model="sentence"
         placeholder="请输入查询需求，例如：我想查找商品信息表的所有信息"
-        rows="4">
-      </textarea>
-      <button @click="submitQuery">查询</button>
-      <!-- 在查询按钮下显示响应时间 -->
+        rows="4"
+      ></textarea>
+      <button @click="submitQuery" :disabled="loading">查询</button>
       <div v-if="responseTime !== null" class="response-time">
         响应时间：{{ responseTime }} 毫秒
       </div>
@@ -35,7 +39,9 @@
       <div v-if="result" class="result">
         <h3>生成的 SQL 语句:</h3>
         <pre>{{ result.sql }}</pre>
-        <button class="download-btn" @click="exportToExcel">下载Excel结果</button>
+        <button class="download-btn" @click="exportToExcel">
+          下载Excel结果
+        </button>
         <h3>查询结果:</h3>
         <table>
           <thead>
@@ -45,13 +51,14 @@
           </thead>
           <tbody>
             <tr v-for="(row, index) in result.result" :key="index">
-              <td v-for="header in tableHeaders" :key="header">{{ row[header] }}</td>
+              <td v-for="header in tableHeaders" :key="header">
+                {{ row[header] }}
+              </td>
             </tr>
           </tbody>
         </table>
 
-
-        <!-- 图表生成按钮 -->
+        <!-- 图表生成按钮（可保留或删减）-->
         <div class="chart-buttons">
           <button @click="openChartModal('line')">生成折线图</button>
           <button @click="openChartModal('bar')">生成柱状图</button>
@@ -129,7 +136,7 @@ export default {
 // 新代码：从 localStorage 获取
 const userInfo = ref(JSON.parse(localStorage.getItem('userInfo')) || null);
 const username = ref(userInfo.value?.username || '未登录用户');
-const permission = ref(userInfo.value?.permission || '0');
+const permission = ref(userInfo.value?.permission || 0); // 改为数字类型
     const sentence = ref('');
     const result = ref(null);
     const loading = ref(false);
