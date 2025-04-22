@@ -33,12 +33,26 @@ const router = createRouter({
 });
 // 路由守卫
 router.beforeEach((to, from, next) => {
-  const isAuthenticated = localStorage.getItem('userInfo');
+  const userInfo = localStorage.getItem('userInfo');
+  const loginTime = localStorage.getItem('loginTime');
+  const maxSessionDuration = 60 * 60 * 1000; // 1 小时
 
-  if (to.meta.requiresAuth && !isAuthenticated) {
-    next('/');
+  const now = Date.now();
+
+  // 判断是否过期
+  const isExpired = loginTime && (now - parseInt(loginTime) > maxSessionDuration);
+
+  if (isExpired) {
+    // 清除本地信息
+    localStorage.removeItem('userInfo');
+    localStorage.removeItem('loginTime');
+  }
+
+  // 再判断是否允许访问
+  if (to.meta.requiresAuth && (!userInfo || isExpired)) {
+    next('/'); // 没登录或者过期就跳转登录
   } else {
-    next();
+    next(); // 允许通行
   }
 });
 export default router;

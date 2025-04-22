@@ -71,6 +71,7 @@ async handleLogin() {
           permission: response.data.permission,
           token: response.data.token
         }));
+        localStorage.setItem('loginTime', Date.now().toString()); // 当前时间戳（毫秒）
 
         this.$router.push({
           path: "/query"
