@@ -25,6 +25,17 @@
           />
         </div>
 
+        <div class="input-group">
+          <label for="confirmPassword">确认密码:</label>
+          <input
+            type="password"
+            id="confirmPassword"
+            v-model="confirmPassword"
+            placeholder="请再次输入密码"
+            required
+          />
+        </div>
+
         <button type="submit" class="register-btn">注册</button>
 
         <div v-if="errorMessage" class="error-message">{{ errorMessage }}</div>
@@ -43,6 +54,7 @@ export default {
     return {
       username: "",
       password: "",
+      confirmPassword: "",  // 新增确认密码
       errorMessage: "",
       successMessage: ""
     };
@@ -51,10 +63,19 @@ export default {
     async handleRegister() {
       this.errorMessage = "";
       this.successMessage = "";
-      if (!this.username || !this.password) {
+
+      // 基本校验
+      if (!this.username || !this.password || !this.confirmPassword) {
         this.errorMessage = "用户名和密码不能为空";
         return;
       }
+
+      // 检查两次密码是否一致
+      if (this.password !== this.confirmPassword) {
+        this.errorMessage = "两次输入的密码不一致，请重新输入";
+        return;
+      }
+
       try {
         const response = await axios.post(REGISTER_URL, {
           username: this.username,
@@ -63,7 +84,7 @@ export default {
         if (response.data.success) {
           this.successMessage = "注册成功，请登录！";
           // 可选择自动跳转到登录页面
-          // this.$router.push("/login");
+          // this.$router.push("/");
         } else {
           this.errorMessage = response.data.detail || "注册失败";
         }
