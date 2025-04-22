@@ -15,7 +15,7 @@ app = FastAPI(
 # 允许前端跨域请求（注意根据实际部署调整）
 origins = [
     "http://localhost:8080",
-    f"http://{HOST_URL}:8080"
+    f"http://{HOST_URL}:8080",
     "https://localhost:8080",
     f"https://{HOST_URL}:8080"
 ]
