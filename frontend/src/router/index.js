@@ -12,7 +12,8 @@ const routes = [
   {
     path: '/query',
     name: 'QueryForm',
-    component: QueryForm
+    component: QueryForm,
+    meta: { requiresAuth: true }
   },
   {
     path: '/register',
@@ -30,5 +31,14 @@ const router = createRouter({
   history: createWebHistory(process.env.BASE_URL),
   routes
 });
+// 路由守卫
+router.beforeEach((to, from, next) => {
+  const isAuthenticated = localStorage.getItem('userInfo');
 
+  if (to.meta.requiresAuth && !isAuthenticated) {
+    next('/');
+  } else {
+    next();
+  }
+});
 export default router;

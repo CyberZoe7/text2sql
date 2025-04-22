@@ -126,10 +126,10 @@ export default {
 
   setup() {
     // 从路由获取用户名和权限参数
-    const route = useRoute();
-    const username = ref(route.query.username || '未登录用户');
-    const permission = ref(route.query.permission || '未知');
-
+// 新代码：从 localStorage 获取
+const userInfo = ref(JSON.parse(localStorage.getItem('userInfo')) || null);
+const username = ref(userInfo.value?.username || '未登录用户');
+const permission = ref(userInfo.value?.permission || '0');
     const sentence = ref('');
     const result = ref(null);
     const loading = ref(false);

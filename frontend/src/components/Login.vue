@@ -64,17 +64,16 @@ async handleLogin() {
     if (response.data.success) {
         this.errorMessage = "";
         // 添加权限处理
-        const userPermission = response.data.permission;
 
-        // 使用本地存储保存权限（可选）
-        localStorage.setItem('userPermission', userPermission);
+        // 存储用户信息（含权限）
+        localStorage.setItem('userInfo', JSON.stringify({
+          username: response.data.username,
+          permission: response.data.permission,
+          token: response.data.token
+        }));
 
         this.$router.push({
-          path: "/query",
-          query: {
-            username: this.username,
-            permission: userPermission  // 通过路由传递权限
-          }
+          path: "/query"
         });
     } else {
       this.errorMessage = "用户名或密码错误！";

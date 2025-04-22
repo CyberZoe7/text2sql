@@ -67,6 +67,7 @@ async def login_user(login: LoginRequest):
             if result:
                 return {
                     "success": True,
+                    "username":result.用户名,
                     "permission": result.权限
                 }
             else:
