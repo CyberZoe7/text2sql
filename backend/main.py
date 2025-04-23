@@ -30,7 +30,7 @@ async def verify_token(
     except jwt.ExpiredSignatureError:
         raise HTTPException(status_code=403, detail="Token 已过期")
     except jwt.PyJWTError as e:
-        raise HTTPException(status_code=403, detail=f"Token 验证失败: {str(e)}")
+        raise HTTPException(status_code=403, detail=f"Token 验证失败:签名验证失败 {str(e)}")
 
 # --- 创建 FastAPI 应用 ---
 app = FastAPI(
@@ -217,6 +217,40 @@ def get_sql_from_text(sentence: str) -> str:
     return content.strip()
 
 
+def get_suggestion_from_text(sentence: str) -> str:
+
+    try:
+        with open("prompt_template_2.txt", "r", encoding="utf-8") as f:
+            template = f.read().strip()
+    except FileNotFoundError:
+        raise HTTPException(status_code=500, detail="prompt_template_2.txt 未找到")
+
+
+    full_prompt = f"{template}{sentence}"
+
+    resp = requests.post(
+        TEXT2SQL_API_URL,
+        json={
+            "model": "deepseek-ai/DeepSeek-R1-Distill-Qwen-7B",
+            "messages": [{"role": "user", "content": full_prompt}],
+            "stream": False,  # 非流式响应
+            "max_tokens": 512,  # 限制输出长度
+            "temperature": 0.7  # 控制随机性（0-1，值越高结果越多样）
+        },
+        headers={
+            "Authorization": f"Bearer {TEXT2SQL_API_TOKEN}",
+            "Content-Type": "application/json"
+        },
+        timeout=30
+    )
+    if resp.status_code != 200:
+        raise HTTPException(status_code=500, detail="Text2SQL 接口调用失败")
+
+    content = resp.json()["choices"][0]["message"]["content"]
+    return content.strip()
+
+
+
 # 定义允许的 SQL 操作关键字（仅 SELECT）
 ALLOWED_KEYWORDS = ["SELECT"]
 
@@ -230,19 +264,18 @@ def validate_sql_operation(sql: str) -> None:
     if not re.match(pattern, sql, re.IGNORECASE | re.DOTALL):
         raise HTTPException(403, "仅允许执行 SELECT 查询")
 # --- 查询接口（带权限控制） ---
+# --- 查询接口（带权限控制） ---
 @app.post("/api/query")
 async def query_database(query: QueryRequest, token_payload: dict = Depends(verify_token)):
     """
     接收自然语言查询，进行智能提示或执行 SQL。
-    如果用户输入中含有“查询”或“查找”等关键词，但未命中任何表名，
-    则返回 suggestions；否则生成 SQL 并执行。
+    如果 SQL 生成1次失败，则调用 get_suggestion_from_text 并返回提示。
     """
-
     sentence = query.sentence or ""
     low = sentence.lower()
 
     # 智能提示：有查询意图但没出现任何表名
-    has_query_kw = any(k in low for k in ["查询", "查找", "select",])
+    has_query_kw = any(k in low for k in ["查询", "查找", "select"])
     matched = [t for t in TABLE_NAMES if t in sentence]
     if has_query_kw and not matched:
         return {"suggestions": TABLE_NAMES}
@@ -252,37 +285,44 @@ async def query_database(query: QueryRequest, token_payload: dict = Depends(veri
     if perm not in (1, 2):
         raise HTTPException(403, "权限不足")
 
-    max_attempts = 3
+    max_attempts = 1# 尝试次数
     last_error = None
 
     for attempt in range(max_attempts):
         try:
             sql_statement = get_sql_from_text(sentence)
-            # +++ 新增：校验 SQL 操作类型 +++
-            validate_sql_operation(sql_statement)  # 仅允许 SELECT
-            # 权限 2 只能查询 产品 表
+            validate_sql_operation(sql_statement)
+            # 权限2只能查“产品”
             if perm == 2:
-                allowed = ["产品"]
-                found = [t for t in TABLE_NAMES if t in sql_statement]
-                if found != allowed:
-                    raise HTTPException(status_code=403, detail="权限不足，只允许查询“产品”表")
+                if "产品" not in sql_statement:
+                    raise HTTPException(403, "权限不足，只允许查询“产品”表")
 
-            # 执行 SQL
             df = pd.read_sql(sql_statement, engine)
-            result = df.to_dict(orient="records")
-            headers = df.columns.tolist()
-            return {"sql": sql_statement, "headers": headers, "result": result}
+            return {
+                "sql": sql_statement,
+                "headers": df.columns.tolist(),
+                "result": df.to_dict(orient="records")
+            }
 
         except HTTPException:
-            # 权限错误直接返回
+            # 权限错误直接向上抛
             raise
         except Exception as e:
             last_error = e
-            print(f"Attempt {attempt+1} failed:", e)
+            # 记录日志但继续重试
+            print(f"[Text2SQL] Attempt {attempt+1} failed: {e}")
 
-    # 三次尝试均失败
-    raise HTTPException(status_code=500, detail=str(last_error))
+    # 三次转换均失败，调用智能提示
+    try:
+        suggestion_text = get_suggestion_from_text(sentence)
+    except Exception as e:
+        # 如果提示接口也出错，则返回最后一次错误
+        raise HTTPException(status_code=500, detail=str(last_error))
 
+    return {
+        # 返回一条完整的提示文本，由前端专门展示
+        "suggestionText": suggestion_text
+    }
 # --- 启动 Uvicorn ---
 if __name__ == "__main__":
     uvicorn.run(
@@ -292,4 +332,5 @@ if __name__ == "__main__":
         ssl_certfile="server.crt",
         ssl_keyfile="server.key",
         reload=True
+
     )

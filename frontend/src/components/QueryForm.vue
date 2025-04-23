@@ -43,6 +43,11 @@
           </li>
         </ul>
       </div>
+        <!-- 三次转换失败后的智能提示 -->
+        <div v-if="suggestionText" class="suggestion-text-panel">
+        <h3>智能提示：</h3>
+        <p>{{ suggestionText }}</p>
+        </div>
       <button @click="submitQuery" :disabled="loading">查询</button>
       <div v-if="responseTime !== null" class="response-time">
         响应时间：{{ responseTime }} 毫秒
@@ -55,6 +60,7 @@
         <button class="download-btn" @click="exportToExcel">
           下载Excel结果
         </button>
+
         <h3>查询结果:</h3>
         <table>
           <thead>
@@ -157,7 +163,7 @@ const permission = ref(userInfo.value?.permission || 0); // 改为数字类型
     const responseTime = ref(null);
     // 智能提示候选表名
     const suggestions = ref([]);
-
+    const suggestionText = ref("");  // 智能提示文本
     const tableHeaders = computed(() => {
       if (result.value && result.value.headers && result.value.headers.length > 0) {
         return result.value.headers;
@@ -170,7 +176,7 @@ const permission = ref(userInfo.value?.permission || 0); // 改为数字类型
       "SELECT 产品名称, 单价 FROM 产品 WHERE 库存数量 > 100",
       "SELECT * FROM 员工 WHERE 部门编号 = '1'",
       "SELECT * FROM 订单 WHERE 订单日期 BETWEEN '2025-04-01' AND '2025-04-09'",
-      "查询采购订单中明细总额大于10000.00的订单的产品名称和数量",
+      "使用“采购明细详情”视图，筛选明细总额>10000.00的记录，提取产品名称和数量。",
       "我想查找男性员工中出生日期在1985-03-15以后人的所有信息",
       "我想查找所有的客户名称和联系电话",
       "我想查找所有产品的信息",
@@ -192,6 +198,7 @@ const permission = ref(userInfo.value?.permission || 0); // 改为数字类型
       result.value = null;
       responseTime.value = null;
       suggestions.value = [];
+      suggestionText.value = "";
       if (!sentence.value.trim()) {
         error.value = '请输入查询需求';
         return;
@@ -201,13 +208,17 @@ const permission = ref(userInfo.value?.permission || 0); // 改为数字类型
       try {
         // 将 permission 参数传递给后端 (如果后端需要校验)
         const response = await axios.post(QUERY_URL, {
-          sentence: sentence.value,
-          permission: Number(permission.value)
+          sentence: sentence.value
         });
         // 如果后端返回 suggestions
         if (response.data.suggestions) {
           suggestions.value = response.data.suggestions;
-        } else {
+        }
+        // 后端返回的智能提示文本
+        else if (response.data.suggestionText) {
+          suggestionText.value = response.data.suggestionText;
+        }
+        else {
         result.value = response.data;}
       } catch (err) {
         error.value = err.response ? err.response.data.detail : err.message;
@@ -362,6 +373,7 @@ const permission = ref(userInfo.value?.permission || 0); // 改为数字类型
     return {
       applySuggestion,
       suggestions,
+      suggestionText,
       username,
       permission,
       sentence,
@@ -647,4 +659,16 @@ tbody tr:nth-child(even) {
 .suggestions-panel li:hover {
   background: #fff3c4;
 }
+/* 三次失败后的智能提示样式 */
+.suggestion-text-panel {
+  background: #e8f0fe;
+  border: 1px solid #aecbfa;
+  padding: 12px;
+  margin: 15px 0;
+  border-radius: 4px;
+}
+.suggestion-text-panel h3 {
+  margin-top: 0;
+}
+
 </style>
