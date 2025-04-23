@@ -30,6 +30,19 @@
         placeholder="请输入查询需求，例如：我想查找商品信息表的所有信息"
         rows="4"
       ></textarea>
+      <!-- 智能提示候选表名 -->
+      <div v-if="suggestions.length" class="suggestions-panel">
+        <h3>未指定表名，请选择一个候选表：</h3>
+        <ul>
+          <li
+            v-for="(tbl, idx) in suggestions"
+            :key="idx"
+            @click="applySuggestion(tbl)"
+          >
+            {{ tbl }}
+          </li>
+        </ul>
+      </div>
       <button @click="submitQuery" :disabled="loading">查询</button>
       <div v-if="responseTime !== null" class="response-time">
         响应时间：{{ responseTime }} 毫秒
@@ -142,6 +155,8 @@ const permission = ref(userInfo.value?.permission || 0); // 改为数字类型
     const loading = ref(false);
     const error = ref('');
     const responseTime = ref(null);
+    // 智能提示候选表名
+    const suggestions = ref([]);
 
     const tableHeaders = computed(() => {
       if (result.value && result.value.headers && result.value.headers.length > 0) {
@@ -156,22 +171,27 @@ const permission = ref(userInfo.value?.permission || 0); // 改为数字类型
       "SELECT * FROM 员工 WHERE 部门编号 = '1'",
       "SELECT * FROM 订单 WHERE 订单日期 BETWEEN '2025-04-01' AND '2025-04-09'",
       "查询采购订单中明细总额大于10000.00的订单的产品名称和数量",
-      "我想知道男性员工中出生日期在1985-03-15以后人的所有信息",
-      "我想知道所有的客户名称和联系电话",
-      "我想知道所有产品的信息",
-      "I would like to know all the product information",
-      "I would like to know all the names and contact numbers of all customers",
+      "我想查找男性员工中出生日期在1985-03-15以后人的所有信息",
+      "我想查找所有的客户名称和联系电话",
+      "我想查找所有产品的信息",
+      "I would like to find information on all products",
+      "I would like to find all the customer names and contact numbers",
     ]);
 
     // 点击常用模板时自动填充到查询输入框
     const applyTemplate = (template) => {
       sentence.value = template;
     };
-
+    // **新增**：点击候选表后自动补全
+    const applySuggestion = (tbl) => {
+      sentence.value = `SELECT * FROM ${tbl}`;
+      suggestions.value = [];
+    };
     const submitQuery = async () => {
       error.value = '';
       result.value = null;
       responseTime.value = null;
+      suggestions.value = [];
       if (!sentence.value.trim()) {
         error.value = '请输入查询需求';
         return;
@@ -184,7 +204,11 @@ const permission = ref(userInfo.value?.permission || 0); // 改为数字类型
           sentence: sentence.value,
           permission: Number(permission.value)
         });
-        result.value = response.data;
+        // 如果后端返回 suggestions
+        if (response.data.suggestions) {
+          suggestions.value = response.data.suggestions;
+        } else {
+        result.value = response.data;}
       } catch (err) {
         error.value = err.response ? err.response.data.detail : err.message;
       } finally {
@@ -336,6 +360,8 @@ const permission = ref(userInfo.value?.permission || 0); // 改为数字类型
       showChartModal.value = false
     }
     return {
+      applySuggestion,
+      suggestions,
       username,
       permission,
       sentence,
@@ -359,7 +385,7 @@ const permission = ref(userInfo.value?.permission || 0); // 改为数字类型
       selectedXAxisField,
       selectedPieField,
       chartData,
-      currentChartComponent
+      currentChartComponent,
     };
   }
 };
@@ -597,5 +623,28 @@ tbody tr:nth-child(even) {
 /* 图表展示区域 */
 .chart-display {
   margin-top: 20px;
+}
+/* ... 保持或略微调整原有样式，并新增 suggestions-panel 的样式 ... */
+.suggestions-panel {
+  background: #fff8e1;
+  border: 1px solid #ffe082;
+  padding: 12px;
+  margin-bottom: 12px;
+  border-radius: 4px;
+}
+.suggestions-panel ul {
+  list-style: none;
+  padding: 0;
+}
+.suggestions-panel li {
+  cursor: pointer;
+  padding: 6px;
+  border-bottom: 1px solid #ffe082;
+}
+.suggestions-panel li:last-child {
+  border-bottom: none;
+}
+.suggestions-panel li:hover {
+  background: #fff3c4;
 }
 </style>

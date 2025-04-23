@@ -9,7 +9,7 @@ from config import (DB_URL,TEXT2SQL_API_URL,TEXT2SQL_API_TOKEN,HOST_URL,SECRET_K
 import jwt
 from datetime import datetime, timedelta
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-
+import re
 # --- Bearer 认证实例 ---
 security = HTTPBearer()
 
@@ -58,6 +58,13 @@ app.add_middleware(
 if not DB_URL:
     raise RuntimeError("config.py 中 DB_URL 未设置或为空，请检查")
 engine = create_engine(DB_URL, pool_pre_ping=True)
+# 在文件顶端定义你所有可查询的表名列表
+TABLE_NAMES = [
+    "部门", "员工", "客户", "产品",
+    "订单", "订单明细", "供应商",
+    "采购订单", "采购明细", "管理员信息"
+]
+
 
 # --- 请求模型定义 ---
 class LoginRequest(BaseModel):
@@ -70,7 +77,6 @@ class RegisterRequest(BaseModel):
 
 class QueryRequest(BaseModel):
     sentence: str
-    permission: int
 
 class ForgotPasswordRequest(BaseModel):
     username: str
@@ -190,9 +196,9 @@ def get_sql_from_text(sentence: str) -> str:
         json={
             "model": "deepseek-ai/DeepSeek-R1-Distill-Qwen-7B",
             "messages": [{"role": "user", "content": full_prompt}],
-            "stream": False,
-            "max_tokens": 512,
-            "temperature": 0.7
+            "stream": False,  # 非流式响应
+            "max_tokens": 512,  # 限制输出长度
+            "temperature": 0.7  # 控制随机性（0-1，值越高结果越多样）
         },
         headers={
             "Authorization": f"Bearer {TEXT2SQL_API_TOKEN}",
@@ -207,50 +213,74 @@ def get_sql_from_text(sentence: str) -> str:
     # 清洗返回内容
     for token in ["```", "sql", "SQL", "；"]:
         content = content.replace(token, "")
+
     return content.strip()
 
+
+# 定义允许的 SQL 操作关键字（仅 SELECT）
+ALLOWED_KEYWORDS = ["SELECT"]
+
+def validate_sql_operation(sql: str) -> None:
+    """
+    校验 SQL 是否仅包含 SELECT 操作（不区分大小写）
+    防止注入或误操作（如 INSERT/UPDATE/DELETE）
+    """
+    # 正则匹配：以 SELECT 开头（允许前置空格或注释）
+    pattern = r"^\s*(--.*?\n\s*)*SELECT\b"
+    if not re.match(pattern, sql, re.IGNORECASE | re.DOTALL):
+        raise HTTPException(403, "仅允许执行 SELECT 查询")
 # --- 查询接口（带权限控制） ---
 @app.post("/api/query")
-async def query_database(query: QueryRequest,token_payload: dict = Depends(verify_token)):
+async def query_database(query: QueryRequest, token_payload: dict = Depends(verify_token)):
     """
-    将自然语言转换的 SQL 执行并返回结果。
-    permission==1：全表查询；permission==2：仅限“产品”表。
+    接收自然语言查询，进行智能提示或执行 SQL。
+    如果用户输入中含有“查询”或“查找”等关键词，但未命中任何表名，
+    则返回 suggestions；否则生成 SQL 并执行。
     """
-    perm = token_payload.get("permission")
 
+    sentence = query.sentence or ""
+    low = sentence.lower()
+
+    # 智能提示：有查询意图但没出现任何表名
+    has_query_kw = any(k in low for k in ["查询", "查找", "select",])
+    matched = [t for t in TABLE_NAMES if t in sentence]
+    if has_query_kw and not matched:
+        return {"suggestions": TABLE_NAMES}
+
+    # 权限校验
+    perm = token_payload["permission"]
     if perm not in (1, 2):
-        raise HTTPException(status_code=403, detail="权限不足")
-
+        raise HTTPException(403, "权限不足")
 
     max_attempts = 3
     last_error = None
 
     for attempt in range(max_attempts):
         try:
-            sql_statement = get_sql_from_text(query.sentence)
+            sql_statement = get_sql_from_text(sentence)
+            # +++ 新增：校验 SQL 操作类型 +++
+            validate_sql_operation(sql_statement)  # 仅允许 SELECT
+            # 权限 2 只能查询 产品 表
+            if perm == 2:
+                allowed = ["产品"]
+                found = [t for t in TABLE_NAMES if t in sql_statement]
+                if found != allowed:
+                    raise HTTPException(status_code=403, detail="权限不足，只允许查询“产品”表")
 
-            # 如果权限为2，则只允许查询产品表，若 SQL 中引用了其他表，立即返回权限不足
-            if query.permission == 2:
-                allowed_table = "产品"
-                tables = ["部门", "员工", "客户", "产品", "订单", "订单明细", "供应商", "采购订单", "采购明细", "管理员信息"]
-                found_tables = [t for t in tables if t in sql_statement]
-                if found_tables != [allowed_table]:
-                    # 检查到权限不足时，直接返回，不进行重试
-                    raise HTTPException(status_code=403, detail="权限不足，只允许查询产品表")
-
-            # 使用 Pandas 执行 SQL 查询，得到 DataFrame
+            # 执行 SQL
             df = pd.read_sql(sql_statement, engine)
             result = df.to_dict(orient="records")
             headers = df.columns.tolist()
             return {"sql": sql_statement, "headers": headers, "result": result}
 
-        except HTTPException as he:
-            # 权限错误直接返回，不再重试
-            raise he
+        except HTTPException:
+            # 权限错误直接返回
+            raise
         except Exception as e:
             last_error = e
-            print(f"Attempt {attempt + 1} failed: {e}")
+            print(f"Attempt {attempt+1} failed:", e)
 
+    # 三次尝试均失败
     raise HTTPException(status_code=500, detail=str(last_error))
 
 # --- 启动 Uvicorn ---
@@ -262,4 +292,5 @@ if __name__ == "__main__":
         ssl_certfile="server.crt",
         ssl_keyfile="server.key",
         reload=True
+
     )
