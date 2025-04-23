@@ -1,5 +1,5 @@
 // frontend/src/api.js
-const BASE_URL = "https://10.135.24.82:443";
+export const BASE_URL = "https://10.135.26.192:443";
 
 export const LOGIN_URL = `${BASE_URL}/api/login`;
 export const QUERY_URL = `${BASE_URL}/api/query`;

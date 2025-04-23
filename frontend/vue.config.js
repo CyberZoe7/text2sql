@@ -1,3 +1,4 @@
+const { BASE_URL } = require('./src/api');
 const fs = require("fs");
 const path = require("path");
 const { defineConfig } = require('@vue/cli-service')
@@ -17,7 +18,7 @@ module.exports = {
     open: true,
     proxy: {
       '/api': {
-        target: 'https://10.135.18.174:443',
+        target: BASE_URL,
         changeOrigin: true,
         secure: false  // 绕过后端自签名证书的校验
       }
