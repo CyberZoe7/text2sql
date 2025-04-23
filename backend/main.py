@@ -211,36 +211,47 @@ def get_sql_from_text(sentence: str) -> str:
 
 # --- 查询接口（带权限控制） ---
 @app.post("/api/query")
-async def query_database(
-    query: QueryRequest,
-    token_payload: dict = Depends(verify_token)
-):
+async def query_database(query: QueryRequest,token_payload: dict = Depends(verify_token)):
     """
     将自然语言转换的 SQL 执行并返回结果。
     permission==1：全表查询；permission==2：仅限“产品”表。
     """
     perm = token_payload.get("permission")
+
     if perm not in (1, 2):
         raise HTTPException(status_code=403, detail="权限不足")
 
-    # 生成 SQL
-    sql_statement = get_sql_from_text(query.sentence)
 
-    # 若权限==2，强制只查“产品”表
-    if perm == 2 and "产品" not in sql_statement:
-        raise HTTPException(status_code=403, detail="仅允许查询 产品 表")
+    max_attempts = 3
+    last_error = None
 
-    # 执行 SQL 并返回 JSON
-    try:
-        df = pd.read_sql(sql_statement, engine)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"执行 SQL 失败: {e}")
+    for attempt in range(max_attempts):
+        try:
+            sql_statement = get_sql_from_text(query.sentence)
 
-    return {
-        "sql": sql_statement,
-        "headers": df.columns.tolist(),
-        "result": df.to_dict(orient="records")
-    }
+            # 如果权限为2，则只允许查询产品表，若 SQL 中引用了其他表，立即返回权限不足
+            if query.permission == 2:
+                allowed_table = "产品"
+                tables = ["部门", "员工", "客户", "产品", "订单", "订单明细", "供应商", "采购订单", "采购明细", "管理员信息"]
+                found_tables = [t for t in tables if t in sql_statement]
+                if found_tables != [allowed_table]:
+                    # 检查到权限不足时，直接返回，不进行重试
+                    raise HTTPException(status_code=403, detail="权限不足，只允许查询产品表")
+
+            # 使用 Pandas 执行 SQL 查询，得到 DataFrame
+            df = pd.read_sql(sql_statement, engine)
+            result = df.to_dict(orient="records")
+            headers = df.columns.tolist()
+            return {"sql": sql_statement, "headers": headers, "result": result}
+
+        except HTTPException as he:
+            # 权限错误直接返回，不再重试
+            raise he
+        except Exception as e:
+            last_error = e
+            print(f"Attempt {attempt + 1} failed: {e}")
+
+    raise HTTPException(status_code=500, detail=str(last_error))
 
 # --- 启动 Uvicorn ---
 if __name__ == "__main__":
