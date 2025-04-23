@@ -292,5 +292,4 @@ if __name__ == "__main__":
         ssl_certfile="server.crt",
         ssl_keyfile="server.key",
         reload=True
-
     )
