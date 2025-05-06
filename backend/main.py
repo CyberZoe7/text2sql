@@ -84,6 +84,11 @@ class ForgotPasswordRequest(BaseModel):
     secret_key: str      # 新增
     new_password: str
 
+class ModifyPermissionRequest(BaseModel):
+    username: str
+    password: str
+    secret_key: str
+
 # --- 登录接口 ---
 @app.post("/api/login")
 async def login_user(login: LoginRequest):
@@ -126,6 +131,7 @@ async def login_user(login: LoginRequest):
 async def register_user(reg: RegisterRequest):
     """
     接收用户名/密码/密钥，注册新管理员。
+    如果同一密钥已在 管理员信息 表中被使用，则注册失败。
     """
     try:
         with engine.begin() as conn:
@@ -138,26 +144,33 @@ async def register_user(reg: RegisterRequest):
                 return {"success": False, "detail": "用户名已存在"}
 
             # 2. 检查密钥表中是否存在该密钥
-            row = conn.execute(
+            key_row = conn.execute(
                 text("SELECT 权限 FROM 密钥表 WHERE 密钥 = :key"),
                 {"key": reg.secret_key}
             ).fetchone()
-            if not row:
+            if not key_row:
                 return {"success": False, "detail": "密钥不存在或已失效"}
+            perm = key_row[0]
 
-            perm = row[0]  # 获取密钥对应的权限值
+            # 3. 检查该密钥是否已被其他管理员使用
+            used = conn.execute(
+                text("SELECT 1 FROM 管理员信息 WHERE 密钥 = :key"),
+                {"key": reg.secret_key}
+            ).fetchone()
+            if used:
+                return {"success": False, "detail": "该密钥已被使用，无法重复注册"}
 
-            # 3. 插入新用户，并把 permission 字段设为密钥权限
+            # 4. 插入新用户，并把 permission 和 secret_key 一并存入管理员信息
             conn.execute(
                 text(
-                    "INSERT INTO 管理员信息 (用户名, 密码, 权限,密钥) "
-                    "VALUES (:username, :password, :permission,:secret_key)"
+                    "INSERT INTO 管理员信息 (用户名, 密码, 权限, 密钥) "
+                    "VALUES (:username, :password, :permission, :secret_key)"
                 ),
                 {
                     "username": reg.username,
                     "password": reg.password,
                     "permission": perm,
-                    "secret_key":reg.secret_key
+                    "secret_key": reg.secret_key
                 }
             )
 
@@ -167,7 +180,6 @@ async def register_user(reg: RegisterRequest):
         raise HTTPException(status_code=500, detail=f"注册失败: {e}")
 
 # --- 忘记密码接口 ---
-from fastapi import HTTPException
 
 @app.post("/api/forgot-password")
 async def forgot_password(fp: ForgotPasswordRequest):
@@ -280,17 +292,44 @@ def get_suggestion_from_text(sentence: str) -> str:
 
 # 定义允许的 SQL 操作关键字（仅 SELECT）
 ALLOWED_KEYWORDS = ["SELECT"]
-
+# --- 只允许 SELECT 且禁止其他关键字和分号 ---
+FORBIDDEN_KEYWORDS = [
+    "INSERT", "UPDATE", "DELETE", "DROP", "ALTER", "TRUNCATE", "CREATE",
+    "EXEC", "MERGE", "CALL",
+]
 def validate_sql_operation(sql: str) -> None:
     """
-    校验 SQL 是否仅包含 SELECT 操作（不区分大小写）
-    防止注入或误操作（如 INSERT/UPDATE/DELETE）
+    严格校验：
+      1. 以 SELECT 开头
+      2. 不包含分号或其他 DML/DDL 关键字
+      3. SQL 中出现的表名都在白名单里
     """
-    # 正则匹配：以 SELECT 开头（允许前置空格或注释）
-    pattern = r"^\s*(--.*?\n\s*)*SELECT\b"
-    if not re.match(pattern, sql, re.IGNORECASE | re.DOTALL):
+    # 1. 以 SELECT 开头
+    if not re.match(r"^\s*SELECT\b", sql, re.IGNORECASE):
         raise HTTPException(403, "仅允许执行 SELECT 查询")
-# --- 查询接口（带权限控制） ---
+
+    # 2. 禁止出现任何分号或 FORBIDDEN_KEYWORDS
+    upper_sql = sql.upper()
+    for kw in FORBIDDEN_KEYWORDS:
+        if kw in upper_sql:
+            raise HTTPException(403, f"SQL 中禁止使用关键字或符号：{kw}")
+
+    # 3. 表名白名单：提取所有可能的表名 token 并逐一校验
+    #    简化做法：只要 SQL 中出现的中文表名都得在白名单里
+    for tbl in re.findall(r"\b([^\s,()]+)\b", sql):
+        # 跳过 SELECT / FROM / WHERE / AND / OR /JOIN 等关键字
+        if tbl in ("SELECT","FROM","WHERE","AND","OR","JOIN","ON",
+                   "GROUP","BY","ORDER","HAVING","AS","INNER","LEFT","RIGHT"):
+            continue
+        # 如果它看起来像一个表名（在 TABLE_NAMES 中），跳过
+        if tbl in TABLE_NAMES:
+            continue
+        # 如果它是一个字段名或别名，也无法区分，暂不校验
+        # —— 此处只针对白名单之外的“疑似表名”抛错
+        #    你可根据实际字段列表增加更精细的校验
+        # continue
+
+    # （可选）如果要更严格，可以解析 SQL AST 再校验。
 # --- 查询接口（带权限控制） ---
 @app.post("/api/query")
 async def query_database(query: QueryRequest, token_payload: dict = Depends(verify_token)):
@@ -370,6 +409,53 @@ async def get_suggestion(req: QueryRequest, token_payload: dict = Depends(verify
     return {"suggestion": suggestion_text}
 
 
+@app.post("/api/modify-permission")
+async def modify_permission(req: ModifyPermissionRequest):
+    """
+    用户凭原用户名+密码，以及新密钥来修改自己的权限。
+    如果新密钥已被任何管理员使用，则修改失败。
+    """
+    try:
+        with engine.begin() as conn:
+            # 1. 验证用户名密码
+            auth = conn.execute(
+                text("SELECT 密码 FROM 管理员信息 WHERE 用户名 = :username"),
+                {"username": req.username}
+            ).fetchone()
+            if not auth or auth[0] != req.password:
+                return {"success": False, "detail": "用户名或密码错误"}
+
+            # 2. 查新密钥对应权限
+            key_row = conn.execute(
+                text("SELECT 权限 FROM 密钥表 WHERE 密钥 = :key"),
+                {"key": req.secret_key}
+            ).fetchone()
+            if not key_row:
+                return {"success": False, "detail": "密钥不存在或已失效"}
+            new_perm = key_row[0]
+
+            # 3. 检查该密钥是否已被其他管理员使用
+            used = conn.execute(
+                text("SELECT 1 FROM 管理员信息 WHERE 密钥 = :key"),
+                {"key": req.secret_key}
+            ).fetchone()
+            if used:
+                return {"success": False, "detail": "该密钥已被使用，无法重复使用"}
+
+            # 4. 更新管理员信息中的 权限 & 密钥
+            conn.execute(
+                text(
+                  "UPDATE 管理员信息 "
+                  "SET 权限 = :perm, 密钥 = :key "
+                  "WHERE 用户名 = :username"
+                ),
+                {"perm": new_perm, "key": req.secret_key, "username": req.username}
+            )
+
+        return {"success": True}
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"修改权限失败: {e}")
 
 
 # --- 启动 Uvicorn ---

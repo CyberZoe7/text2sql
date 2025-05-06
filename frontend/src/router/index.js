@@ -6,7 +6,7 @@ import Login from '../components/Login.vue';        // 登录组件
 import QueryForm from '../components/QueryForm.vue'; // 查询表单组件 
 import Register from '../components/Register.vue';   // 注册组件
 import ForgotPassword from "@/components/ForgotPassword.vue"; // 忘记密码组件
-
+import ModifyPermission from "@/components/ModifyPermission.vue";
 // 导入axios库用于HTTP请求
 import axios from 'axios'
 
@@ -50,6 +50,12 @@ const routes = [
     path: '/forgot-password',
     name: 'ForgotPassword',
     component: ForgotPassword
+  },
+  {
+    path: "/modify-permission",
+    name: "ModifyPermission",
+    component: ModifyPermission,
+    meta: { requiresAuth: false }  // 修改权限不需要先登录
   }
 ];
 
@@ -67,7 +73,7 @@ router.beforeEach((to, from, next) => {
   const loginTime = localStorage.getItem('loginTime');
   
   // 会话最大持续时间（1小时）
-  const maxSessionDuration = 60 * 60 * 1000; 
+  const maxSessionDuration = 60 * 60 * 1000;
 
   // 获取当前时间戳
   const now = Date.now();

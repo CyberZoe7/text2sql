@@ -1,6 +1,6 @@
 <!-- src/views/QueryForm.vue -->
 <template>
-  <div class="query-container">
+  <div id="app">
     <!-- 顶部用户信息 -->
     <header class="header-bar">
       <div class="logo">🛠️ Text2SQL 系统</div>
@@ -12,7 +12,7 @@
 
     <main class="main-content">
       <!-- 左侧模板列表 -->
-      <aside class="template-aside">
+      <aside class="template-aside card">
         <h3>常用查询模板</h3>
         <ul>
           <li v-for="(tpl, i) in queryTemplates" :key="i" @click="applyTemplate(tpl)">
@@ -22,7 +22,7 @@
       </aside>
 
       <!-- 中央查询区 -->
-      <section class="query-section">
+      <section class="query-section card">
         <textarea
           v-model="sentence"
           placeholder="请输入查询需求，例如：我想查找商品信息表的所有信息"
@@ -68,7 +68,7 @@
         </div>
 
         <transition name="fade">
-          <div v-if="result" class="result-panel">
+          <div v-if="result" class="result-panel card">
             <div class="sql-box">
               <strong>SQL:</strong>
               <code>{{ result.sql }}</code>
@@ -96,9 +96,9 @@
           </div>
         </transition>
 
-        <!-- 渲染并优化图表展示 -->
+        <!-- 渲染图表 -->
         <div v-if="chartData" class="chart-container">
-          <div class="chart-wrapper">
+          <div class="chart-wrapper card">
             <component :is="currentChartComponent" :chartData="chartData" class="chart-component" />
           </div>
         </div>
@@ -107,7 +107,7 @@
 
     <!-- 图表配置弹窗 -->
     <div v-if="showChartModal" class="modal-overlay">
-      <div class="modal-card">
+      <div class="modal-card card">
         <h3>配置图表</h3>
         <div v-if="chartType !== 'pie'">
           <label>数值字段：</label>
@@ -174,12 +174,13 @@ export default {
     // 常用查询模板示例数组（根据实际业务调整模板内容）
     const queryTemplates = ref([
       "SELECT 产品名称, 单价 FROM 产品 WHERE 库存数量 > 100",
-      "SELECT * FROM 员工 WHERE 部门编号 = '1'",
+      "SELECT c.客户名称, COUNT(o.订单编号) AS 订单数量, SUM(o.订单总额) AS 订单总额 FROM 客户 c LEFT JOIN 订单 o ON c.客户编号 = o.客户编号 GROUP BY c.客户名称;",
       "SELECT * FROM 订单 WHERE 订单日期 BETWEEN '2025-04-01' AND '2025-04-09'",
       "使用“采购明细详情”视图，筛选明细总额>10000.00的记录，提取产品名称和数量。",
       "我想查找男性员工中出生日期在1985-03-15以后人的所有信息",
-      "我想查找所有的客户名称和联系电话",
+      "统计每个客户的订单数量和订单总额。",
       "我想查找所有产品的信息",
+      "列出所有员工的姓名、所在部门的名称和部门位置。",
       "I would like to find information on all products",
       "I would like to find all the customer names and contact numbers",
     ]);
@@ -409,35 +410,128 @@ export default {
 </script>
 
 <style scoped>
-.query-container { display: flex; flex-direction: column; height: 100vh; }
-.header-bar { display: flex; justify-content: space-between; align-items: center; padding: 0 24px; background: #fff; box-shadow: 0 2px 6px rgba(0,0,0,0.1); }
-.main-content { flex: 1; display: flex; overflow: hidden; }
-.template-aside { width: 280px; background: #fafafa; padding: 16px; border-right: 1px solid #eee; overflow-y: auto; }
-.template-aside ul li { padding: 8px; margin-bottom: 6px; border-radius: 4px; cursor: pointer; transition: background .2s; }
-.template-aside ul li:hover { background: #e8f0fe; }
-.query-section { flex: 1; padding: 24px; overflow-y: auto; }
-textarea { width: 100%; height: 100px; resize: none; padding: 12px; border-radius: 4px; border: 1px solid #ddd; margin-bottom: 16px; }
-.actions { display: flex; gap: 12px; margin-bottom: 12px; }
-.btn { border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; font-size: 14px; }
-.btn.primary { background: #4caf50; color: #fff; }
-.btn.secondary { background: #2196f3; color: #fff; }
-.btn.tertiary { background: transparent; color: #2196f3; }
-.msg { margin: 8px 0; }
-.msg.error { color: #e74c3c; }
-.msg.info { color: #666; }
-.result-panel { margin-top: 16px; }
-.result-table { width: 100%; border-collapse: collapse; margin-top: 12px; }
-.result-table th, .result-table td { padding: 8px; text-align: center; border: 1px solid #eee; }
-.panel { background: #fff; padding: 12px; border-radius: 4px; margin-bottom: 12px; }
-.suggestions-panel .tag { cursor: pointer; background: #f0f4ff; padding: 4px 8px; border-radius: 12px; margin: 4px; display: inline-block; }
-.chart-container { display: flex; flex-direction: column; align-items: center; margin-top: 24px; }
-.chart-wrapper { width: 100%; max-width: 600px; background: #fff; padding: 16px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
+/* 全局重置与背景 */
+* { box-sizing: border-box; margin: 0; padding: 0; }
+#app {
+  min-height: 100vh;
+  background: linear-gradient(135deg, #e0f7fa, #80deea);
+  font-family: "Helvetica Neue", Arial, sans-serif;
+}
+
+.header-bar {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 0 24px; height: 60px; background: #ffffff;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+  position: sticky; top: 0;
+}
+.logo { font-size: 1.25rem; color: #00796b; }
+.user-info { display: flex; align-items: center; color: #004d40; }
+.user-info .icon { margin-right: 6px; }
+
+.main-content {
+  display: flex; padding: 24px; gap: 16px;
+}
+
+.card {
+  background: #ffffff; border-radius: 8px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.05);
+  padding: 16px;
+}
+
+.template-aside {
+  width: 260px; max-height: calc(100vh - 100px);
+  overflow-y: auto;
+}
+.template-aside h3 { margin-bottom: 12px; color: #00796b; }
+.template-aside ul { list-style: none; }
+.template-aside li {
+  padding: 8px; border-radius: 4px; cursor: pointer;
+  transition: background 0.2s;
+}
+.template-aside li:hover { background: #e8f0fe; }
+
+.query-section {
+  flex: 1; display: flex; flex-direction: column;
+}
+.query-section textarea {
+  width: 100%; height: 120px; resize: none;
+  padding: 12px; border: 1px solid #b2dfdb;
+  border-radius: 6px; font-size: 1rem;
+  transition: border-color 0.2s;
+}
+.query-section textarea:focus {
+  outline: none; border-color: #00796b;
+}
+
+.panel { margin-top: 12px; }
+.suggestions-panel h4,
+.hint-panel h4 { margin-bottom: 6px; color: #00796b; }
+.tags { display: flex; flex-wrap: wrap; gap: 6px; }
+.tag {
+  background: #f0f4ff; padding: 6px 10px;
+  border-radius: 12px; cursor: pointer;
+  transition: background 0.2s;
+}
+.tag:hover { background: #d2e3fc; }
+
+.actions { display: flex; gap: 12px; margin-top: 16px; }
+.btn {
+  padding: 10px 20px; font-size: 0.95rem;
+  border: none; border-radius: 6px;
+  cursor: pointer; transition: background 0.2s, transform 0.2s;
+}
+.primary {
+  background: #00796b; color: #fff;
+}
+.primary:hover {
+  background: #004d40; transform: translateY(-2px);
+}
+.secondary {
+  background: #009688; color: #fff;
+}
+.secondary:hover {
+  background: #00695c; transform: translateY(-2px);
+}
+.tertiary {
+  background: transparent; color: #00796b;
+}
+.tertiary:hover { text-decoration: underline; }
+.small { padding: 6px 12px; font-size: 0.85rem; }
+
+.msg { margin-top: 12px; font-weight: 500; }
+.error { color: #d32f2f; }
+.info { color: #004d40; }
+
+.result-panel { margin-top: 20px; }
+.sql-box { margin-bottom: 12px; font-family: monospace; }
+.result-table {
+  width: 100%; border-collapse: collapse;
+  margin-top: 12px;
+}
+.result-table th,
+.result-table td {
+  padding: 8px; text-align: center;
+  border: 1px solid #eee;
+}
+
+.chart-buttons { margin-top: 16px; display: flex; gap: 8px; }
+
+.chart-container { display: flex; justify-content: center; margin-top: 24px; }
+.chart-wrapper { width: 100%; max-width: 600px; padding: 16px; }
 .chart-component { width: 100%; height: 300px; }
-.modal-overlay { position: fixed; top:0; left:0; right:0; bottom:0; display: flex; align-items:center; justify-content:center; background: rgba(0,0,0,0.4); }
-.modal-card { background: #fff; border-radius: 6px; padding: 24px; width: 320px; }
-.modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top:16px; }
-.fade-enter-active, .fade-leave-active { transition: opacity .3s; }
-.fade-enter-from, .fade-leave-to { opacity: 0; }
+
+.modal-overlay {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.4);
+  display: flex; align-items: center; justify-content: center;
+}
+.modal-card { width: 320px; }
+.modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
+
+.fade-enter-active,
+.fade-leave-active { transition: opacity 0.3s; }
+.fade-enter-from,
+.fade-leave-to { opacity: 0; }
 </style>
 
 

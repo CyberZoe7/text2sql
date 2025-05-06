@@ -1,41 +1,35 @@
 <template>
   <div id="app">
     <div class="card-container">
-      <h2 class="title">忘记密码</h2>
-      <form @submit.prevent="handleForgot" class="form">
+      <h2 class="title">修改权限</h2>
+      <form @submit.prevent="handleModify" class="form">
         <div class="input-group">
           <label for="username">用户名</label>
           <input id="username" v-model="username" placeholder="请输入用户名" required />
         </div>
 
         <div class="input-group">
-          <label for="secretKey">注册密钥</label>
-          <input id="secretKey" v-model="secretKey" placeholder="请输入注册密钥" required />
-        </div>
-
-        <div class="input-group">
-          <label for="newPassword">新密码</label>
+          <label for="password">密码</label>
           <input
-            id="newPassword"
+            id="password"
             type="password"
-            v-model="newPassword"
-            placeholder="请输入新密码"
+            v-model="password"
+            placeholder="请输入密码"
             required
           />
         </div>
 
         <div class="input-group">
-          <label for="confirmPassword">确认新密码</label>
+          <label for="secretKey">新密钥</label>
           <input
-            id="confirmPassword"
-            type="password"
-            v-model="confirmPassword"
-            placeholder="请再次输入新密码"
+            id="secretKey"
+            v-model="secretKey"
+            placeholder="请输入新的 8 位密钥"
             required
           />
         </div>
 
-        <button type="submit" class="btn primary">提交</button>
+        <button type="submit" class="btn primary">提交修改</button>
 
         <div v-if="errorMessage" class="error-message">{{ errorMessage }}</div>
         <div v-if="successMessage" class="success-message">{{ successMessage }}</div>
@@ -46,42 +40,37 @@
 
 <script>
 import axios from "axios";
-import { FORGOT_PASSWORD_URL } from "@/api";
+import { MODIFY_PERMISSION_URL } from "@/api";
 
 export default {
-  name: "ForgotPassword",
+  name: "ModifyPermission",
   data() {
     return {
       username: "",
+      password: "",
       secretKey: "",
-      newPassword: "",
-      confirmPassword: "",
       errorMessage: "",
       successMessage: ""
     };
   },
   methods: {
-    async handleForgot() {
+    async handleModify() {
       this.errorMessage = "";
       this.successMessage = "";
 
-      if (!this.username || !this.secretKey || !this.newPassword || !this.confirmPassword) {
+      if (!this.username || !this.password || !this.secretKey) {
         this.errorMessage = "所有字段都不能为空";
-        return;
-      }
-      if (this.newPassword !== this.confirmPassword) {
-        this.errorMessage = "两次输入的新密码不一致";
         return;
       }
 
       try {
-        const resp = await axios.post(FORGOT_PASSWORD_URL, {
+        const resp = await axios.post(MODIFY_PERMISSION_URL, {
           username: this.username,
-          secret_key: this.secretKey,
-          new_password: this.newPassword
+          password: this.password,
+          secret_key: this.secretKey
         });
         if (resp.data.success) {
-          this.successMessage = "密码已更新，请使用新密码登录！";
+          this.successMessage = "权限已更新，请重新登录查看！";
         } else {
           this.errorMessage = resp.data.detail || "更新失败";
         }
@@ -94,7 +83,7 @@ export default {
 </script>
 
 <style scoped>
-/* 与 Register.vue 同样的全局与容器样式 */
+/* 与 Register.vue 同步样式 */
 * { box-sizing:border-box; margin:0; padding:0; }
 #app {
   display:flex; align-items:center; justify-content:center;

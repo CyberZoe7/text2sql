@@ -1,13 +1,11 @@
 <template>
-  <div id="register">
-    <div class="register-container">
-      <h2>注册</h2>
-      <form @submit.prevent="handleRegister">
-        <!-- 用户名 -->
+  <div id="app">
+    <div class="card-container">
+      <h2 class="title">用户注册</h2>
+      <form @submit.prevent="handleRegister" class="form">
         <div class="input-group">
-          <label for="username">用户名:</label>
+          <label for="username">用户名</label>
           <input
-            type="text"
             id="username"
             v-model="username"
             placeholder="请输入用户名"
@@ -15,35 +13,31 @@
           />
         </div>
 
-        <!-- 密码 -->
         <div class="input-group">
-          <label for="password">密码:</label>
+          <label for="password">密码</label>
           <input
-            type="password"
             id="password"
+            type="password"
             v-model="password"
             placeholder="请输入密码"
             required
           />
         </div>
 
-        <!-- 确认密码 -->
         <div class="input-group">
-          <label for="confirmPassword">确认密码:</label>
+          <label for="confirmPassword">确认密码</label>
           <input
-            type="password"
             id="confirmPassword"
+            type="password"
             v-model="confirmPassword"
             placeholder="请再次输入密码"
             required
           />
         </div>
 
-        <!-- 新增：密钥 -->
         <div class="input-group">
-          <label for="secretKey">注册密钥:</label>
+          <label for="secretKey">注册密钥</label>
           <input
-            type="text"
             id="secretKey"
             v-model="secretKey"
             placeholder="请输入 8 位密钥"
@@ -51,7 +45,7 @@
           />
         </div>
 
-        <button type="submit" class="register-btn">注册</button>
+        <button type="submit" class="btn primary">注册</button>
 
         <div v-if="errorMessage" class="error-message">{{ errorMessage }}</div>
         <div v-if="successMessage" class="success-message">{{ successMessage }}</div>
@@ -71,7 +65,7 @@ export default {
       username: "",
       password: "",
       confirmPassword: "",
-      secretKey: "",      // 新增
+      secretKey: "",
       errorMessage: "",
       successMessage: ""
     };
@@ -81,83 +75,95 @@ export default {
       this.errorMessage = "";
       this.successMessage = "";
 
-      // 基本校验
       if (!this.username || !this.password || !this.confirmPassword || !this.secretKey) {
-        this.errorMessage = "用户名、密码和密钥都不能为空";
+        this.errorMessage = "所有字段都不能为空";
         return;
       }
       if (this.password !== this.confirmPassword) {
-        this.errorMessage = "两次输入的密码不一致，请重新输入";
+        this.errorMessage = "两次输入的密码不一致";
         return;
       }
 
       try {
-        const response = await axios.post(REGISTER_URL, {
+        const resp = await axios.post(REGISTER_URL, {
           username: this.username,
           password: this.password,
-          secret_key: this.secretKey    // 传递密钥
+          secret_key: this.secretKey
         });
-        if (response.data.success) {
+        if (resp.data.success) {
           this.successMessage = "注册成功，请登录！";
         } else {
-          // 后端会返回 detail: "密钥不存在" 或 "用户名已存在" 等
-          this.errorMessage = response.data.detail || "注册失败";
+          this.errorMessage = resp.data.detail || "注册失败";
         }
-      } catch (error) {
-        this.errorMessage = error.response
-          ? error.response.data.detail
-          : error.message;
+      } catch (e) {
+        this.errorMessage = e.response?.data.detail || e.message;
       }
-    },
-  },
+    }
+  }
 };
 </script>
 
 <style scoped>
-.register-container {
-  width: 400px;
-  margin: 50px auto;
-  padding: 20px;
-  border: 1px solid #ddd;
-  border-radius: 8px;
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+* { box-sizing: border-box; margin:0; padding:0; }
+#app {
+  display:flex; align-items:center; justify-content:center;
+  min-height:100vh;
+  background:linear-gradient(135deg,#e0f7fa,#80deea);
 }
-h2 {
-  margin-bottom: 20px;
-  text-align: center;
+.card-container {
+  background:#fff;
+  width:100%; max-width:400px;
+  padding:30px 25px;
+  border-radius:12px;
+  box-shadow:0 8px 16px rgba(0,0,0,0.1);
+  transition:transform .3s;
 }
-.input-group {
-  margin-bottom: 20px;
-  text-align: left;
+.card-container:hover { transform:translateY(-4px); }
+
+.title {
+  text-align:center;
+  font-size:1.75rem;
+  color:#00796b;
+  margin-bottom:20px;
 }
+
+.form { display:flex; flex-direction:column; }
+
+.input-group { margin-bottom:18px; }
 .input-group label {
-  display: block;
-  margin-bottom: 5px;
+  display:block; margin-bottom:6px;
+  font-weight:500; color:#004d40;
 }
 .input-group input {
-  width: 96%;
-  padding: 8px;
-  border: 1px solid #ddd;
-  border-radius: 4px;
+  width:100%; padding:10px 12px;
+  border:1px solid #b2dfdb; border-radius:6px;
+  font-size:1rem;
+  transition:border-color .2s;
 }
-button.register-btn {
-  width: 100%;
-  padding: 10px;
-  background-color: #42b983;
-  color: white;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
+.input-group input:focus {
+  outline:none; border-color:#00796b;
 }
-button.register-btn:hover {
-  background-color: #3e9c7b;
+
+.btn {
+  width:100%; padding:10px;
+  font-size:1rem; border:none;
+  border-radius:6px; cursor:pointer;
+  transition:background .2s, transform .2s;
 }
+.primary {
+  background:#00796b; color:#fff;
+  margin-top:10px;
+}
+.primary:hover {
+  background:#004d40; transform:translateY(-2px);
+}
+
 .error-message {
-  margin-top: 10px;
-  color: red;
+  margin-top:12px;
+  text-align:center; color:#d32f2f; font-weight:500;
 }
 .success-message {
-  margin-top: 10px;
-  color: green;
+  margin-top:12px;
+  text-align:center; color:#388e3c; font-weight:500;
 }
 </style>
