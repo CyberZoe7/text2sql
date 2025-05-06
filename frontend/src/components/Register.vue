@@ -3,6 +3,7 @@
     <div class="register-container">
       <h2>注册</h2>
       <form @submit.prevent="handleRegister">
+        <!-- 用户名 -->
         <div class="input-group">
           <label for="username">用户名:</label>
           <input
@@ -14,6 +15,7 @@
           />
         </div>
 
+        <!-- 密码 -->
         <div class="input-group">
           <label for="password">密码:</label>
           <input
@@ -25,6 +27,7 @@
           />
         </div>
 
+        <!-- 确认密码 -->
         <div class="input-group">
           <label for="confirmPassword">确认密码:</label>
           <input
@@ -32,6 +35,18 @@
             id="confirmPassword"
             v-model="confirmPassword"
             placeholder="请再次输入密码"
+            required
+          />
+        </div>
+
+        <!-- 新增：密钥 -->
+        <div class="input-group">
+          <label for="secretKey">注册密钥:</label>
+          <input
+            type="text"
+            id="secretKey"
+            v-model="secretKey"
+            placeholder="请输入 8 位密钥"
             required
           />
         </div>
@@ -48,13 +63,15 @@
 <script>
 import axios from "axios";
 import { REGISTER_URL } from "@/api";
+
 export default {
   name: "Register",
   data() {
     return {
       username: "",
       password: "",
-      confirmPassword: "",  // 新增确认密码
+      confirmPassword: "",
+      secretKey: "",      // 新增
       errorMessage: "",
       successMessage: ""
     };
@@ -65,12 +82,10 @@ export default {
       this.successMessage = "";
 
       // 基本校验
-      if (!this.username || !this.password || !this.confirmPassword) {
-        this.errorMessage = "用户名和密码不能为空";
+      if (!this.username || !this.password || !this.confirmPassword || !this.secretKey) {
+        this.errorMessage = "用户名、密码和密钥都不能为空";
         return;
       }
-
-      // 检查两次密码是否一致
       if (this.password !== this.confirmPassword) {
         this.errorMessage = "两次输入的密码不一致，请重新输入";
         return;
@@ -80,16 +95,18 @@ export default {
         const response = await axios.post(REGISTER_URL, {
           username: this.username,
           password: this.password,
+          secret_key: this.secretKey    // 传递密钥
         });
         if (response.data.success) {
           this.successMessage = "注册成功，请登录！";
-          // 可选择自动跳转到登录页面
-          // this.$router.push("/");
         } else {
+          // 后端会返回 detail: "密钥不存在" 或 "用户名已存在" 等
           this.errorMessage = response.data.detail || "注册失败";
         }
       } catch (error) {
-        this.errorMessage = error.response ? error.response.data.detail : error.message;
+        this.errorMessage = error.response
+          ? error.response.data.detail
+          : error.message;
       }
     },
   },

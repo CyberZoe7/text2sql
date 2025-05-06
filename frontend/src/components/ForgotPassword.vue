@@ -3,6 +3,8 @@
     <div class="forgot-container">
       <h2>忘记密码</h2>
       <form @submit.prevent="handleForgotPassword">
+
+        <!-- 用户名 -->
         <div class="input-group">
           <label for="username">用户名:</label>
           <input
@@ -14,6 +16,19 @@
           />
         </div>
 
+        <!-- 注册密钥 -->
+        <div class="input-group">
+          <label for="secretKey">注册密钥:</label>
+          <input
+            type="text"
+            id="secretKey"
+            v-model="secretKey"
+            placeholder="请输入 8 位注册密钥"
+            required
+          />
+        </div>
+
+        <!-- 新密码 -->
         <div class="input-group">
           <label for="newPassword">新密码:</label>
           <input
@@ -25,6 +40,7 @@
           />
         </div>
 
+        <!-- 确认新密码 -->
         <div class="input-group">
           <label for="confirmPassword">确认新密码:</label>
           <input
@@ -47,12 +63,14 @@
 
 <script>
 import axios from "axios";
-import {FORGOT_PASSWORD_URL} from "@/api";
+import { FORGOT_PASSWORD_URL } from "@/api";
+
 export default {
   name: "ForgotPassword",
   data() {
     return {
       username: "",
+      secretKey: "",        // 新增
       newPassword: "",
       confirmPassword: "",
       errorMessage: "",
@@ -64,11 +82,11 @@ export default {
       this.errorMessage = "";
       this.successMessage = "";
 
-      if (!this.username || !this.newPassword || !this.confirmPassword) {
+      // 基本校验
+      if (!this.username || !this.secretKey || !this.newPassword || !this.confirmPassword) {
         this.errorMessage = "所有字段都不能为空";
         return;
       }
-
       if (this.newPassword !== this.confirmPassword) {
         this.errorMessage = "两次输入的新密码不一致";
         return;
@@ -77,18 +95,19 @@ export default {
       try {
         const response = await axios.post(FORGOT_PASSWORD_URL, {
           username: this.username,
+          secret_key: this.secretKey,      // 传递密钥
           new_password: this.newPassword
         });
 
         if (response.data.success) {
           this.successMessage = "密码已成功更新，请使用新密码登录！";
-          // 可选择自动跳转到登录页面，例如：
-          // this.$router.push("/login");
         } else {
           this.errorMessage = response.data.detail || "更新密码失败";
         }
       } catch (error) {
-        this.errorMessage = error.response ? error.response.data.detail : error.message;
+        this.errorMessage = error.response
+          ? error.response.data.detail
+          : error.message;
       }
     }
   }

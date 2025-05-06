@@ -9,7 +9,7 @@ from datetime import datetime, timezone, timedelta
 DB_URL = "mysql+mysqlconnector://root:hqm111222333@localhost/小型企业数据库"
 TEXT2SQL_API_URL = "https://api.siliconflow.cn/v1/chat/completions"
 TEXT2SQL_API_TOKEN = "sk-dguldiyzvpupvknhgyvyxnrhtguktyzjmvvjbbzbbedfygvk"
-HOST_URL = "172.16.111.81"
+HOST_URL = "10.135.8.214"
 
 # —— 2. 密钥存储文件 —— #
 BASE_DIR = Path(__file__).parent

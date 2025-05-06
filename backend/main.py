@@ -74,12 +74,14 @@ class LoginRequest(BaseModel):
 class RegisterRequest(BaseModel):
     username: str
     password: str
+    secret_key: str      # 新增
 
 class QueryRequest(BaseModel):
     sentence: str
 
 class ForgotPasswordRequest(BaseModel):
     username: str
+    secret_key: str      # 新增
     new_password: str
 
 # --- 登录接口 ---
@@ -123,11 +125,11 @@ async def login_user(login: LoginRequest):
 @app.post("/api/register")
 async def register_user(reg: RegisterRequest):
     """
-    接收用户名/密码，注册新管理员。
+    接收用户名/密码/密钥，注册新管理员。
     """
     try:
         with engine.begin() as conn:
-            # 检查是否已存在
+            # 1. 检查用户名是否已存在
             exists = conn.execute(
                 text("SELECT 1 FROM 管理员信息 WHERE 用户名 = :username"),
                 {"username": reg.username}
@@ -135,43 +137,68 @@ async def register_user(reg: RegisterRequest):
             if exists:
                 return {"success": False, "detail": "用户名已存在"}
 
-            # 插入新用户
+            # 2. 检查密钥表中是否存在该密钥
+            row = conn.execute(
+                text("SELECT 权限 FROM 密钥表 WHERE 密钥 = :key"),
+                {"key": reg.secret_key}
+            ).fetchone()
+            if not row:
+                return {"success": False, "detail": "密钥不存在或已失效"}
+
+            perm = row[0]  # 获取密钥对应的权限值
+
+            # 3. 插入新用户，并把 permission 字段设为密钥权限
             conn.execute(
                 text(
-                    "INSERT INTO 管理员信息 (用户名, 密码) "
-                    "VALUES (:username, :password)"
+                    "INSERT INTO 管理员信息 (用户名, 密码, 权限,密钥) "
+                    "VALUES (:username, :password, :permission,:secret_key)"
                 ),
-                {"username": reg.username, "password": reg.password}
+                {
+                    "username": reg.username,
+                    "password": reg.password,
+                    "permission": perm,
+                    "secret_key":reg.secret_key
+                }
             )
+
         return {"success": True}
+
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"注册失败: {e}")
 
 # --- 忘记密码接口 ---
+from fastapi import HTTPException
+
 @app.post("/api/forgot-password")
 async def forgot_password(fp: ForgotPasswordRequest):
     """
-    忘记密码：根据用户名更新密码。
+    忘记密码：当 用户名+密钥 在 管理员信息 中匹配时，才更新密码。
     """
     try:
         with engine.begin() as conn:
-            # 确认用户存在
-            user = conn.execute(
-                text("SELECT 1 FROM 管理员信息 WHERE 用户名 = :username"),
-                {"username": fp.username}
+            # 1. 检查用户+密钥是否匹配
+            row = conn.execute(
+                text(
+                  "SELECT 1 FROM 管理员信息 "
+                  "WHERE 用户名 = :username AND 密钥 = :secret_key"
+                ),
+                {"username": fp.username, "secret_key": fp.secret_key}
             ).fetchone()
-            if not user:
-                return {"success": False, "detail": "用户名不存在"}
+            if not row:
+                return {"success": False, "detail": "用户名或密钥不匹配"}
 
-            # 更新密码
+            # 2. 更新密码
             conn.execute(
                 text(
-                    "UPDATE 管理员信息 SET 密码 = :new_password "
+                    "UPDATE 管理员信息 "
+                    "SET 密码 = :new_password "
                     "WHERE 用户名 = :username"
                 ),
                 {"new_password": fp.new_password, "username": fp.username}
             )
+
         return {"success": True}
+
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"更新密码失败: {e}")
 
