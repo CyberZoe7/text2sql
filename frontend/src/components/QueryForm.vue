@@ -1,132 +1,138 @@
 <!-- src/views/QueryForm.vue -->
 <template>
-  <div class="container">
-    <!-- 用户信息显示 -->
-    <div class="user-info">
-      <span class="username-icon">👤</span>
-      <span class="username-text">
-        {{ username }} (权限：{{ permission }})
-      </span>
-    </div>
-    <div class="card">
-      <h2>基于 Text2SQL 的智能数据库查询系统</h2>
+  <div class="query-container">
+    <!-- 顶部用户信息 -->
+    <header class="header-bar">
+      <div class="logo">🛠️ Text2SQL 系统</div>
+      <div class="user-info">
+        <span class="icon">👤</span>
+        <span class="text">{{ username }} (权限：{{ permission }})</span>
+      </div>
+    </header>
 
-      <!-- 常用查询模板区域 -->
-      <div class="template-panel">
+    <main class="main-content">
+      <!-- 左侧模板列表 -->
+      <aside class="template-aside">
         <h3>常用查询模板</h3>
-        <ul class="template-list">
-          <li
-            v-for="(template, index) in queryTemplates"
-            :key="index"
-            @click="applyTemplate(template)"
-          >
-            {{ template }}
-          </li>
-        </ul>
-      </div>
-
-      <textarea
-        v-model="sentence"
-        placeholder="请输入查询需求，例如：我想查找商品信息表的所有信息"
-        rows="4"
-      ></textarea>
-      <!-- 智能提示候选表名 -->
-      <div v-if="suggestions.length" class="suggestions-panel">
-        <h3>未指定表名，请选择一个候选表：</h3>
         <ul>
-          <li
-            v-for="(tbl, idx) in suggestions"
-            :key="idx"
-            @click="applySuggestion(tbl)"
-          >
-            {{ tbl }}
+          <li v-for="(tpl, i) in queryTemplates" :key="i" @click="applyTemplate(tpl)">
+            {{ tpl }}
           </li>
         </ul>
-      </div>
-        <!-- 三次转换失败后的智能提示 -->
-        <div v-if="suggestionText" class="suggestion-text-panel">
-        <h3>智能提示：</h3>
-        <p>{{ suggestionText }}</p>
-        </div>
-      <button @click="submitQuery" :disabled="loading">查询</button>
-      <div v-if="responseTime !== null" class="response-time">
-        响应时间：{{ responseTime }} 毫秒
-      </div>
-      <div v-if="loading" class="status loading">查询中...</div>
-      <div v-if="error" class="status error">{{ error }}</div>
-      <div v-if="result" class="result">
-        <h3>生成的 SQL 语句:</h3>
-        <pre>{{ result.sql }}</pre>
-        <button class="download-btn" @click="exportToExcel">
-          下载Excel结果
-        </button>
+      </aside>
 
-        <h3>查询结果:</h3>
-        <table>
-          <thead>
-            <tr>
-              <th v-for="header in tableHeaders" :key="header">{{ header }}</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="(row, index) in result.result" :key="index">
-              <td v-for="header in tableHeaders" :key="header">
-                {{ row[header] }}
-              </td>
-            </tr>
-          </tbody>
-        </table>
+      <!-- 中央查询区 -->
+      <section class="query-section">
+        <textarea
+          v-model="sentence"
+          placeholder="请输入查询需求，例如：我想查找商品信息表的所有信息"
+        />
 
-        <!-- 图表生成按钮（可保留或删减）-->
-        <div class="chart-buttons">
-          <button @click="openChartModal('line')">生成折线图</button>
-          <button @click="openChartModal('bar')">生成柱状图</button>
-          <button @click="openChartModal('pie')">生成饼图</button>
-        </div>
-      </div>
-
-      <!-- 弹窗：图表配置 -->
-      <div v-if="showChartModal" class="modal-overlay">
-        <div class="modal">
-          <h3>配置图表数据</h3>
-          <div v-if="chartType === 'line' || chartType === 'bar'">
-            <div class="form-group">
-              <label>选择统计数据字段（数值型）:</label>
-              <select v-model="selectedStatField">
-                <option v-for="field in numericFields" :key="field" :value="field">{{ field }}</option>
-              </select>
-            </div>
-            <div class="form-group">
-              <label>选择横坐标字段:</label>
-              <select v-model="selectedXAxisField">
-                <option v-for="field in nonNumericFields" :key="field" :value="field">{{ field }}</option>
-              </select>
-            </div>
-          </div>
-<div v-else-if="chartType === 'pie'">
-  <div class="form-group">
-    <label>选择分类字段:</label>
-    <select v-model="selectedXAxisField"> <!-- 改为使用X轴字段 -->
-      <option v-for="field in nonNumericFields" :key="field" :value="field">{{ field }}</option>
-    </select>
-  </div>
-  <div class="form-group">
-    <label>选择统计字段:</label>
-    <select v-model="selectedStatField"> <!-- 新增数值字段选择 -->
-      <option v-for="field in numericFields" :key="field" :value="field">{{ field }}</option>
-    </select>
-  </div>
-</div>
-          <div class="modal-actions">
-            <button @click="generateChart">生成图表</button>
-            <button @click="closeChartModal">取消</button>
+        <div v-if="suggestions.length" class="panel suggestions-panel">
+          <h4>请选择一个表：</h4>
+          <div class="tags">
+            <span
+              v-for="(tbl, i) in suggestions"
+              :key="i"
+              class="tag"
+              @click="applySuggestion(tbl)"
+            >{{ tbl }}</span>
           </div>
         </div>
-      </div>
 
-      <!-- 根据选择动态渲染图表 -->
-      <div v-if="chartData" class="chart-display">
-        <component :is="currentChartComponent" :chartData="chartData" />
+        <div v-if="suggestionText" class="panel hint-panel">
+          <h4>智能提示</h4>
+          <p>{{ suggestionText }}</p>
+        </div>
+
+        <div class="actions">
+          <button
+            @click="requestSuggestion"
+            :disabled="suggestionLoading || queryLoading"
+            class="btn secondary"
+          >
+            {{ suggestionLoading ? '响应中...' : '请求建议' }}
+          </button>
+          <button
+            @click="submitQuery"
+            :disabled="suggestionLoading || queryLoading"
+            class="btn primary"
+          >
+            {{ queryLoading ? '查询中...' : '查询' }}
+          </button>
+        </div>
+
+        <div v-if="error" class="msg error">{{ error }}</div>
+        <div v-if="responseTime !== null" class="msg info">
+          响应：{{ responseTime }} ms
+        </div>
+
+        <transition name="fade">
+          <div v-if="result" class="result-panel">
+            <div class="sql-box">
+              <strong>SQL:</strong>
+              <code>{{ result.sql }}</code>
+            </div>
+            <button class="btn tertiary" @click="exportToExcel">下载 Excel</button>
+
+            <table class="result-table">
+              <thead>
+                <tr>
+                  <th v-for="h in tableHeaders" :key="h">{{ h }}</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="(row, idx) in result.result" :key="idx">
+                  <td v-for="h in tableHeaders" :key="h">{{ row[h] }}</td>
+                </tr>
+              </tbody>
+            </table>
+
+            <div class="chart-buttons">
+              <button @click="openChartModal('line')" class="btn small">折线图</button>
+              <button @click="openChartModal('bar')" class="btn small">柱状图</button>
+              <button @click="openChartModal('pie')" class="btn small">饼图</button>
+            </div>
+          </div>
+        </transition>
+
+        <!-- 渲染并优化图表展示 -->
+        <div v-if="chartData" class="chart-container">
+          <div class="chart-wrapper">
+            <component :is="currentChartComponent" :chartData="chartData" class="chart-component" />
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <!-- 图表配置弹窗 -->
+    <div v-if="showChartModal" class="modal-overlay">
+      <div class="modal-card">
+        <h3>配置图表</h3>
+        <div v-if="chartType !== 'pie'">
+          <label>数值字段：</label>
+          <select v-model="selectedStatField">
+            <option v-for="f in numericFields" :key="f" :value="f">{{ f }}</option>
+          </select>
+          <label>分类字段：</label>
+          <select v-model="selectedXAxisField">
+            <option v-for="f in nonNumericFields" :key="f" :value="f">{{ f }}</option>
+          </select>
+        </div>
+        <div v-else>
+          <label>分类字段：</label>
+          <select v-model="selectedXAxisField">
+            <option v-for="f in nonNumericFields" :key="f" :value="f">{{ f }}</option>
+          </select>
+          <label>数值字段：</label>
+          <select v-model="selectedStatField">
+            <option v-for="f in numericFields" :key="f" :value="f">{{ f }}</option>
+          </select>
+        </div>
+        <div class="modal-actions">
+          <button @click="generateChart" class="btn primary small">生成</button>
+          <button @click="closeChartModal" class="btn secondary small">取消</button>
+        </div>
       </div>
     </div>
   </div>
@@ -134,36 +140,30 @@
 
 <script>
 import { ref, computed } from 'vue';
-import { useRoute } from 'vue-router';
 import axios from 'axios';
-import { QUERY_URL } from "@/api";
+import { QUERY_URL,SUGGESTION_URL } from "@/api";
 import * as XLSX from 'xlsx';
 import LineChart from '@/components/LineChart.vue'
 import BarChart from '@/components/BarChart.vue'
 import PieChart from '@/components/PieChart.vue'
 
 export default {
-  components: {
-    LineChart,
-    BarChart,
-    PieChart
-  },
-
-
+  components: { LineChart, BarChart, PieChart },
   setup() {
     // 从路由获取用户名和权限参数
-// 新代码：从 localStorage 获取
-const userInfo = ref(JSON.parse(localStorage.getItem('userInfo')) || null);
-const username = ref(userInfo.value?.username || '未登录用户');
-const permission = ref(userInfo.value?.permission || 0); // 改为数字类型
+    // 新代码：从 localStorage 获取
+    const userInfo = ref(JSON.parse(localStorage.getItem('userInfo')) || null);
+    const username = ref(userInfo.value?.username || '未登录用户');
+    const permission = ref(userInfo.value?.permission || 0); // 改为数字类型
     const sentence = ref('');
     const result = ref(null);
-    const loading = ref(false);
     const error = ref('');
     const responseTime = ref(null);
+    const suggestionLoading = ref(false);
+    const queryLoading = ref(false);
     // 智能提示候选表名
     const suggestions = ref([]);
-    const suggestionText = ref("");  // 智能提示文本
+    const suggestionText = ref(''); // 智能提示文本
     const tableHeaders = computed(() => {
       if (result.value && result.value.headers && result.value.headers.length > 0) {
         return result.value.headers;
@@ -193,39 +193,42 @@ const permission = ref(userInfo.value?.permission || 0); // 改为数字类型
       sentence.value = `SELECT * FROM ${tbl}`;
       suggestions.value = [];
     };
+    // 点击“请求建议”
+    const requestSuggestion = async () => {
+      if (!sentence.value.trim()) { error.value = '请输入查询需求后再请求建议'; return; }
+      suggestionLoading.value = true;
+      error.value = '';
+      suggestions.value = [];
+      suggestionText.value = '';
+      try {
+        const resp = await axios.post(SUGGESTION_URL, { sentence: sentence.value });
+        suggestionText.value = resp.data.suggestion;
+      } catch (err) {
+        error.value = err.response?.data?.detail || err.message;
+      } finally {
+        suggestionLoading.value = false;
+      }
+    };
+
+
     const submitQuery = async () => {
+      if (!sentence.value.trim()) { error.value = '请输入查询需求'; return; }
+      queryLoading.value = true;
       error.value = '';
       result.value = null;
-      responseTime.value = null;
       suggestions.value = [];
-      suggestionText.value = "";
-      if (!sentence.value.trim()) {
-        error.value = '请输入查询需求';
-        return;
-      }
-      loading.value = true;
-      const startTime = Date.now();
+      suggestionText.value = '';
+      const start = Date.now();
       try {
-        // 将 permission 参数传递给后端 (如果后端需要校验)
-        const response = await axios.post(QUERY_URL, {
-          sentence: sentence.value
-        });
-        // 如果后端返回 suggestions
-        if (response.data.suggestions) {
-          suggestions.value = response.data.suggestions;
-        }
-        // 后端返回的智能提示文本
-        else if (response.data.suggestionText) {
-          suggestionText.value = response.data.suggestionText;
-        }
-        else {
-        result.value = response.data;}
+        const resp = await axios.post(QUERY_URL, { sentence: sentence.value });
+        if (resp.data.suggestions) suggestions.value = resp.data.suggestions;
+        else if (resp.data.suggestionText) suggestionText.value = resp.data.suggestionText;
+        else result.value = resp.data;
       } catch (err) {
-        error.value = err.response ? err.response.data.detail : err.message;
+        error.value = err.response?.data?.detail || err.message;
       } finally {
-        loading.value = false;
-        const endTime = Date.now();
-        responseTime.value = endTime - startTime;
+        responseTime.value = Date.now() - start;
+        queryLoading.value = false;
       }
     };
 
@@ -378,13 +381,15 @@ const permission = ref(userInfo.value?.permission || 0); // 改为数字类型
       permission,
       sentence,
       result,
-      loading,
       error,
+      suggestionLoading,
+      queryLoading,
       tableHeaders,
       responseTime,
       queryTemplates,
       applyTemplate,
       submitQuery,
+      requestSuggestion,
       exportToExcel,
       showChartModal,
       chartType,
@@ -404,271 +409,35 @@ const permission = ref(userInfo.value?.permission || 0); // 改为数字类型
 </script>
 
 <style scoped>
-/* 用户信息样式 */
-.user-info {
-  position: absolute;
-  top: 20px;
-  left: 20px;
-  background: rgba(255, 255, 255, 0.9);
-  padding: 8px 15px;
-  border-radius: 25px;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  z-index: 100;
-}
-
-.username-icon {
-  font-size: 16px;
-}
-
-.username-text {
-  font-size: 14px;
-  color: #42b983;
-  font-weight: 500;
-}
-
-/* 页面容器 */
-.container {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 100vh;
-  background: #f5f7fa;
-  padding: 20px;
-}
-
-/* 卡片样式 */
-.card {
-  background: #fff;
-  padding: 30px;
-  border-radius: 8px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-  width: 90%;
-  max-width: 700px;
-  text-align: center;
-}
-
-/* 标题 */
-h2 {
-  margin-bottom: 20px;
-  color: #333;
-}
-
-/* 常用查询模板区域 */
-.template-panel {
-  background: #f7f7f7;
-  padding: 15px;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  margin-bottom: 15px;
-  text-align: left;
-}
-
-.template-panel h3 {
-  margin: 0 0 10px 0;
-  font-size: 16px;
-  color: #333;
-}
-
-.template-list {
-  list-style: none;
-  padding-left: 0;
-  margin: 0;
-}
-
-.template-list li {
-  cursor: pointer;
-  padding: 6px 10px;
-  border-radius: 4px;
-  transition: background 0.3s;
-  margin-bottom: 4px;
-}
-
-.template-list li:hover {
-  background: #e0f7f1;
-}
-
-/* 文本域 */
-textarea {
-  width: 92%;
-  padding: 12px;
-  border: 1px solid #dcdfe6;
-  border-radius: 4px;
-  font-size: 14px;
-  resize: vertical;
-  margin-bottom: 15px;
-}
-
-/* 查询按钮 */
-button {
-  background-color: #42b983;
-  color: #fff;
-  border: none;
-  padding: 12px 24px;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 16px;
-  transition: background-color 0.3s ease;
-  margin-bottom: 15px;
-}
-
-button:hover {
-  background-color: #369870;
-}
-
-/* 响应时间样式 */
-.response-time {
-  font-size: 14px;
-  color: #666;
-  margin-bottom: 15px;
-}
-
-/* 状态提示 */
-.status {
-  margin: 10px 0;
-  font-size: 14px;
-}
-
-.loading {
-  color: #666;
-}
-
-.error {
-  color: #e74c3c;
-}
-
-/* 查询结果区域 */
-.result {
-  margin-top: 20px;
-  text-align: left;
-}
-
-/* SQL 语句预览 */
-.result pre {
-  background: #f0f0f0;
-  padding: 10px;
-  border-radius: 4px;
-  overflow: auto;
-}
-
-/* 查询结果表格 */
-table {
-  width: 100%;
-  border-collapse: collapse;
-  margin-top: 10px;
-}
-
-th,
-td {
-  padding: 10px;
-  border: 1px solid #ddd;
-  text-align: center;
-}
-
-thead {
-  background: #f7f7f7;
-}
-
-tbody tr:nth-child(even) {
-  background: #fbfbfb;
-}
-
-/* 下载按钮样式 */
-.download-btn {
-  margin: 15px 0;
-  background-color: #42b983;
-  color: white;
-  padding: 10px 20px;
-  border-radius: 4px;
-  border: none;
-  cursor: pointer;
-  transition: background-color 0.3s;
-}
-
-.download-btn:hover {
-  background-color: #369870;
-}
-
-/* 图表按钮 */
-.chart-buttons {
-  margin-top: 20px;
-}
-.chart-buttons button {
-  margin-right: 10px;
-}
-
-/* 弹窗样式 */
-.modal-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0,0,0,0.5);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1000;
-}
-.modal {
-  background: #fff;
-  padding: 20px;
-  border-radius: 8px;
-  width: 300px;
-}
-.form-group {
-  margin-bottom: 15px;
-}
-.form-group label {
-  display: block;
-  margin-bottom: 5px;
-}
-.modal-actions {
-  text-align: right;
-}
-.modal-actions button {
-  margin-left: 10px;
-}
-
-/* 图表展示区域 */
-.chart-display {
-  margin-top: 20px;
-}
-/* ... 保持或略微调整原有样式，并新增 suggestions-panel 的样式 ... */
-.suggestions-panel {
-  background: #fff8e1;
-  border: 1px solid #ffe082;
-  padding: 12px;
-  margin-bottom: 12px;
-  border-radius: 4px;
-}
-.suggestions-panel ul {
-  list-style: none;
-  padding: 0;
-}
-.suggestions-panel li {
-  cursor: pointer;
-  padding: 6px;
-  border-bottom: 1px solid #ffe082;
-}
-.suggestions-panel li:last-child {
-  border-bottom: none;
-}
-.suggestions-panel li:hover {
-  background: #fff3c4;
-}
-/* 三次失败后的智能提示样式 */
-.suggestion-text-panel {
-  background: #e8f0fe;
-  border: 1px solid #aecbfa;
-  padding: 12px;
-  margin: 15px 0;
-  border-radius: 4px;
-}
-.suggestion-text-panel h3 {
-  margin-top: 0;
-}
-
+.query-container { display: flex; flex-direction: column; height: 100vh; }
+.header-bar { display: flex; justify-content: space-between; align-items: center; padding: 0 24px; background: #fff; box-shadow: 0 2px 6px rgba(0,0,0,0.1); }
+.main-content { flex: 1; display: flex; overflow: hidden; }
+.template-aside { width: 280px; background: #fafafa; padding: 16px; border-right: 1px solid #eee; overflow-y: auto; }
+.template-aside ul li { padding: 8px; margin-bottom: 6px; border-radius: 4px; cursor: pointer; transition: background .2s; }
+.template-aside ul li:hover { background: #e8f0fe; }
+.query-section { flex: 1; padding: 24px; overflow-y: auto; }
+textarea { width: 100%; height: 100px; resize: none; padding: 12px; border-radius: 4px; border: 1px solid #ddd; margin-bottom: 16px; }
+.actions { display: flex; gap: 12px; margin-bottom: 12px; }
+.btn { border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; font-size: 14px; }
+.btn.primary { background: #4caf50; color: #fff; }
+.btn.secondary { background: #2196f3; color: #fff; }
+.btn.tertiary { background: transparent; color: #2196f3; }
+.msg { margin: 8px 0; }
+.msg.error { color: #e74c3c; }
+.msg.info { color: #666; }
+.result-panel { margin-top: 16px; }
+.result-table { width: 100%; border-collapse: collapse; margin-top: 12px; }
+.result-table th, .result-table td { padding: 8px; text-align: center; border: 1px solid #eee; }
+.panel { background: #fff; padding: 12px; border-radius: 4px; margin-bottom: 12px; }
+.suggestions-panel .tag { cursor: pointer; background: #f0f4ff; padding: 4px 8px; border-radius: 12px; margin: 4px; display: inline-block; }
+.chart-container { display: flex; flex-direction: column; align-items: center; margin-top: 24px; }
+.chart-wrapper { width: 100%; max-width: 600px; background: #fff; padding: 16px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
+.chart-component { width: 100%; height: 300px; }
+.modal-overlay { position: fixed; top:0; left:0; right:0; bottom:0; display: flex; align-items:center; justify-content:center; background: rgba(0,0,0,0.4); }
+.modal-card { background: #fff; border-radius: 6px; padding: 24px; width: 320px; }
+.modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top:16px; }
+.fade-enter-active, .fade-leave-active { transition: opacity .3s; }
+.fade-enter-from, .fade-leave-to { opacity: 0; }
 </style>
+
+

@@ -323,6 +323,28 @@ async def query_database(query: QueryRequest, token_payload: dict = Depends(veri
         # 返回一条完整的提示文本，由前端专门展示
         "suggestionText": suggestion_text
     }
+# --- 智能提示接口（单独调用） ---
+@app.post("/api/suggestion")
+async def get_suggestion(req: QueryRequest, token_payload: dict = Depends(verify_token)):
+    """
+    单独请求智能提示：调用 get_suggestion_from_text，将提示文本返回给前端。
+    """
+    sentence = req.sentence or ""
+    # 权限校验，可按需调整：
+    perm = token_payload["permission"]
+    if perm not in (1, 2):
+        raise HTTPException(403, "权限不足")
+
+    try:
+        suggestion_text = get_suggestion_from_text(sentence)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"智能提示失败：{e}")
+
+    return {"suggestion": suggestion_text}
+
+
+
+
 # --- 启动 Uvicorn ---
 if __name__ == "__main__":
     uvicorn.run(
