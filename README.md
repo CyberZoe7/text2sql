@@ -34,35 +34,37 @@
 7. **图表可视化**  
    - 支持折线图、柱状图、饼图，根据用户选字段动态渲染  
 
+
 ---
 
-## 🔧 环境 & 依赖
+## ⚙️ 技术栈
 
-### 后端
+- **前端**  
+  - Vue 3 + Composition API  
+  - Vue Router  
+  - Axios  
+  - XLSX.js （导出 Excel）  
+  - Chart.js （图表可视化）  
 
-- Python 3.8+  
-- FastAPI, Uvicorn  
-- SQLAlchemy, mysql-connector-python  
-- pandas  
-- PyJWT  
-- requests  
+- **后端**  
+  - Python 3.8+  
+  - FastAPI + Uvicorn  
+  - SQLAlchemy + mysql-connector-python  
+  - pandas  
+  - PyJWT（JWT 鉴权）  
+  - requests（调用 Text2SQL 接口）  
 
-安装：
+- **第 三 方 Text2SQL**  
+  - DeepSeek-R1-Distill-Qwen-7B 模型  
+
+---
+
+## 🚀 快速启动
+
+### 1. 克隆仓库
 
 ```bash
-cd backend
-python -m venv .venv
-# Windows PowerShell
-.venv\Scripts\Activate.ps1
-# macOS/Linux
-source .venv/bin/activate
+git clone https://github.com/CyberZoe7/text2sql.git
+cd text2sql
 
-pip install -r requirements.txt
-
-
----
-
-## 🔧 环境 & 依赖
-
-### 前端
 
