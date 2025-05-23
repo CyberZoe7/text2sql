@@ -59,15 +59,10 @@ source .venv/bin/activate
 
 pip install -r requirements.txt
 
-### 后端
 
-Node.js 14+
+---
 
-Vue 3 + Vue Router
+## 🔧 环境 & 依赖
 
-Axios
-
-XLSX
-
-Chart.js
+### 前端
 
