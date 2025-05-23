@@ -13,8 +13,6 @@
 
 ---
 
----
-
 ## 🚀 核心功能
 
 1. **自然语言转 SQL**  
@@ -33,7 +31,6 @@
    - 将查询结果一键导出为 `.xlsx`  
 7. **图表可视化**  
    - 支持折线图、柱状图、饼图，根据用户选字段动态渲染  
-
 
 ---
 
@@ -61,10 +58,35 @@
 
 ## 🚀 快速启动
 
-### 1. 克隆仓库
+### 克隆仓库
 
 ```bash
 git clone https://github.com/CyberZoe7/text2sql.git
 cd text2sql
 
+后端部署
+cd backend
+python -m venv .venv
+# Windows PowerShell
+.venv\Scripts\Activate.ps1
+# macOS/Linux
+source .venv/bin/activate
 
+pip install -r requirements.txt
+编辑 backend/config.py，设置：
+DB_URL = "mysql+mysqlconnector://<db_user>:<db_pass>@<db_host>/<db_name>"
+TEXT2SQL_API_TOKEN = "<你的 Text2SQL 服务令牌>"
+HOST_URL = "<后端主机地址或 IP>"
+首次启动时会自动生成 secret_store.json 保存随机的 SECRET_KEY，并设为 600 权限。
+
+前端部署
+cd ../frontend
+npm install
+配置
+编辑 frontend/src/api.js，将 BASE_URL 指向你的后端地址，例如：
+export const BASE_URL = "https://<YOUR_HOST>:8000";
+export const LOGIN_URL = `${BASE_URL}/api/login`;
+export const QUERY_URL = `${BASE_URL}/api/query`;
+运行
+npm run serve
+打开浏览器访问 http://localhost:8080
