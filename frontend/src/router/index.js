@@ -7,6 +7,7 @@ import QueryForm from '../components/QueryForm.vue'; // 查询表单组件
 import Register from '../components/Register.vue';   // 注册组件
 import ForgotPassword from "@/components/ForgotPassword.vue"; // 忘记密码组件
 import ModifyPermission from "@/components/ModifyPermission.vue";
+import ConnectDB from "@/components/ConnectDB.vue";
 // 导入axios库用于HTTP请求
 import axios from 'axios'
 
@@ -56,7 +57,12 @@ const routes = [
     name: "ModifyPermission",
     component: ModifyPermission,
     meta: { requiresAuth: false }  // 修改权限不需要先登录
-  }
+  },
+  {
+    path: "/connectdb",
+    name: "ConnectDB",
+    component: ConnectDB,
+  },
 ];
 
 // 创建路由器实例

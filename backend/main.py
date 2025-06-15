@@ -4,8 +4,8 @@ from fastapi.middleware.cors import CORSMiddleware
 import requests
 import pandas as pd
 from sqlalchemy import create_engine, text
-from pydantic import BaseModel
-from config import (DB_URL,TEXT2SQL_API_URL,TEXT2SQL_API_TOKEN,HOST_URL,SECRET_KEY,ALGORITHM,TOKEN_EXPIRE_HOURS)
+from pydantic import BaseModel, Field
+from config import (TEXT2SQL_API_URL,TEXT2SQL_API_TOKEN,HOST_URL,SECRET_KEY,ALGORITHM,TOKEN_EXPIRE_HOURS)
 import jwt
 from datetime import datetime, timedelta
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
@@ -46,6 +46,8 @@ origins = [
     "https://localhost:8080",
     f"https://{HOST_URL}:8080",
 ]
+# 全局引擎，初始 None
+engine = None
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
@@ -55,9 +57,7 @@ app.add_middleware(
 )
 
 # --- 初始化同步数据库引擎 ---
-if not DB_URL:
-    raise RuntimeError("config.py 中 DB_URL 未设置或为空，请检查")
-engine = create_engine(DB_URL, pool_pre_ping=True)
+
 # 在文件顶端定义你所有可查询的表名列表
 TABLE_NAMES = [
     "部门", "员工", "客户", "产品",
@@ -89,12 +89,58 @@ class ModifyPermissionRequest(BaseModel):
     password: str
     secret_key: str
 
+class DBConnectRequest(BaseModel):
+    db_type: str = Field(..., pattern="^(mysql|postgresql)$")
+    host: str
+    port: int
+    username: str
+    password: str
+    database: str
+
+@app.post("/api/db/connect")
+async def connect_db(req: DBConnectRequest):
+    """
+    测试连接并在全局 engine 中保存可用的数据库引擎。
+    """
+    global engine
+
+    # 拼接 SQLAlchemy URL
+    if req.db_type == "mysql":
+        url = (
+            f"mysql+mysqlconnector://{req.username}:{req.password}"
+            f"@{req.host}:{req.port}/{req.database}?charset=utf8mb4"
+        )
+    else:
+        url = (
+            f"postgresql+psycopg2://{req.username}:{req.password}"
+            f"@{req.host}:{req.port}/{req.database}"
+        )
+
+    # 测试连接
+    try:
+        tmp_engine = create_engine(url, pool_pre_ping=True)
+        with tmp_engine.connect() as conn:
+            conn.execute(text("SELECT 1"))
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"连接失败：{e}")
+
+    # 连接成功后，保存到全局 engine
+    engine = tmp_engine
+    return {"success": True, "db_url": url}
+
+
+# --- 后续所有需要数据库的接口都先检查 engine ---
+def get_engine_or_400():
+    if engine is None:
+        raise HTTPException(status_code=400, detail="请先配置并测试数据库连接")
+    return engine
 # --- 登录接口 ---
 @app.post("/api/login")
 async def login_user(login: LoginRequest):
     """
     接收用户名/密码，验证后发放 JWT。
     """
+    engine = get_engine_or_400()
     try:
         with engine.connect() as conn:
             sql = text(
@@ -133,6 +179,7 @@ async def register_user(reg: RegisterRequest):
     接收用户名/密码/密钥，注册新管理员。
     如果同一密钥已在 管理员信息 表中被使用，则注册失败。
     """
+    engine = get_engine_or_400()
     try:
         with engine.begin() as conn:
             # 1. 检查用户名是否已存在
@@ -186,6 +233,7 @@ async def forgot_password(fp: ForgotPasswordRequest):
     """
     忘记密码：当 用户名+密钥 在 管理员信息 中匹配时，才更新密码。
     """
+    engine = get_engine_or_400()
     try:
         with engine.begin() as conn:
             # 1. 检查用户+密钥是否匹配
@@ -415,6 +463,7 @@ async def modify_permission(req: ModifyPermissionRequest):
     用户凭原用户名+密码，以及新密钥来修改自己的权限。
     如果新密钥已被任何管理员使用，则修改失败。
     """
+    engine = get_engine_or_400()
     try:
         with engine.begin() as conn:
             # 1. 验证用户名密码

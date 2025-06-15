@@ -29,6 +29,7 @@
           <button type="submit" class="btn primary">登录</button>
           <button type="button" class="btn secondary" @click="toRegister">注册</button>
           <button type="button" class="btn secondary" @click="toModifyPermission">修改权限</button>
+          <button type="button" class="btn secondary" @click="toConnectDB">选择数据库</button>
         </div>
 
         <div class="extra-actions">
@@ -46,6 +47,7 @@
 <script>
 import axios from "axios";
 import { LOGIN_URL } from "@/api";
+import ConnectDB from "@/components/ConnectDB.vue";
 export default {
   name: "Login",
   data() {
@@ -82,7 +84,7 @@ export default {
           this.errorMessage = "用户名或密码错误！";
         }
       } catch {
-        this.errorMessage = "登录请求失败，请稍后再试！";
+        this.errorMessage = "登录请求失败，请确定是否已连接数据库";
       }
     },
     toRegister() {
@@ -94,6 +96,9 @@ export default {
     toModifyPermission() {
       this.$router.push("/modify-permission");
     },
+    toConnectDB(){
+      this.$router.push("/connectdb");
+    }
   },
 };
 </script>
