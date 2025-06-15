@@ -8,3 +8,4 @@ export const REGISTER_URL = `${BASE_URL}/api/register`;
 export const SUGGESTION_URL = `${BASE_URL}/api/suggestion`;
 export const MODIFY_PERMISSION_URL =`${BASE_URL}/api/modify-permission`;
 export const CONNECT_DB_URL = `${BASE_URL}/api/db/connect`;
+export const TEMPLATES_URL =`${BASE_URL}/api/templates`;

@@ -134,6 +134,8 @@ def get_engine_or_400():
     if engine is None:
         raise HTTPException(status_code=400, detail="请先配置并测试数据库连接")
     return engine
+
+
 # --- 登录接口 ---
 @app.post("/api/login")
 async def login_user(login: LoginRequest):
@@ -281,10 +283,10 @@ def get_sql_from_text(sentence: str) -> str:
     resp = requests.post(
         TEXT2SQL_API_URL,
         json={
-            "model": "deepseek-ai/DeepSeek-R1-Distill-Qwen-7B",
+            "model": "THUDM/GLM-4-9B-0414",
             "messages": [{"role": "user", "content": full_prompt}],
             "stream": False,  # 非流式响应
-            "max_tokens": 512,  # 限制输出长度
+            "max_tokens": 4096,  # 限制输出长度
             "temperature": 0.7  # 控制随机性（0-1，值越高结果越多样）
         },
         headers={
@@ -318,7 +320,7 @@ def get_suggestion_from_text(sentence: str) -> str:
     resp = requests.post(
         TEXT2SQL_API_URL,
         json={
-            "model": "deepseek-ai/DeepSeek-R1-Distill-Qwen-7B",
+            "model": "THUDM/GLM-4-9B-0414",
             "messages": [{"role": "user", "content": full_prompt}],
             "stream": False,  # 非流式响应
             "max_tokens": 512,  # 限制输出长度
@@ -505,6 +507,63 @@ async def modify_permission(req: ModifyPermissionRequest):
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"修改权限失败: {e}")
+
+# --- 在文件顶端导入 verify_token, requests 等已有组件 ---
+
+class TemplateRequest(BaseModel):
+    # 未来可以加入行业/表名等上下文参数；当前无需额外字段
+    pass
+
+@app.post("/api/templates")
+async def generate_templates(
+    _: TemplateRequest,
+    token_payload: dict = Depends(verify_token)
+):
+    try:
+        with open("prompt_template_3.txt", "r", encoding="utf-8") as f:
+            template = f.read().strip()
+    except FileNotFoundError:
+        raise HTTPException(status_code=500, detail="prompt_template_3.txt 未找到")
+
+    # """
+    # 调用大模型，自动生成查询模板，每行一句并用双引号包裹，返回模板列表。
+    # """
+    # 可根据业务场景定制 prompt
+    prompt = template
+    try:
+        resp = requests.post(
+            TEXT2SQL_API_URL,
+            json={
+                "model": "THUDM/GLM-4-9B-0414",
+                "messages": [{"role": "user", "content": prompt}],
+                "max_tokens": 512,
+                "temperature": 0.7,
+                "stream": False
+            },
+            headers={
+                "Authorization": f"Bearer {TEXT2SQL_API_TOKEN}",
+                "Content-Type": "application/json"
+            },
+            timeout=30
+        )
+        resp.raise_for_status()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"模板生成失败：{e}")
+
+    content = resp.json()["choices"][0]["message"]["content"]
+    # 按行拆分，去除空行和首尾双引号
+    # 按行拆分，去除空行和首尾双引号
+    templates = []
+    for line in content.splitlines():
+        tpl = line.strip()
+        if not tpl:
+            continue
+        if tpl.startswith('"') and tpl.endswith('"'):
+            # Python 切片，而不是 JavaScript slice()
+            templates.append(tpl[1:-1])
+        else:
+            templates.append(tpl)
+    return {"templates": templates}
 
 
 # --- 启动 Uvicorn ---

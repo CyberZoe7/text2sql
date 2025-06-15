@@ -11,14 +11,28 @@
     </header>
 
     <main class="main-content">
-      <!-- 左侧模板列表 -->
-      <aside class="template-aside card">
-        <h3>常用查询模板</h3>
-        <ul>
-          <li v-for="(tpl, i) in queryTemplates" :key="i" @click="applyTemplate(tpl)">
-            {{ tpl }}
-          </li>
-        </ul>
+      <!-- 左侧：常用模板 & 查询历史 -->
+      <aside class="sidebar card">
+        <section class="template-aside">
+            <button class="btn small tertiary" @click="generateTemplates" :disabled="templateLoading">
+                {{ templateLoading ? '生成中...' : '生成模板' }}
+            </button>
+          <h3>常用查询模板</h3>
+          <ul>
+            <li v-for="(tpl, i) in queryTemplates" :key="i" @click="applyTemplate(tpl)">
+              {{ tpl }}
+            </li>
+          </ul>
+        </section>
+        <section class="history-aside">
+          <h3>查询历史</h3>
+          <ul>
+            <li v-for="(h, i) in history" :key="i" @click="loadHistory(h)">
+              <div class="hist-query">{{ i+1 }}. {{ h.query }}</div>
+              <div class="hist-sql">SQL: {{ h.sql }}</div>
+            </li>
+          </ul>
+        </section>
       </aside>
 
       <!-- 中央查询区 -->
@@ -96,7 +110,7 @@
           </div>
         </transition>
 
-        <!-- 渲染图表 -->
+        <!-- 图表渲染 -->
         <div v-if="chartData" class="chart-container">
           <div class="chart-wrapper card">
             <component :is="currentChartComponent" :chartData="chartData" class="chart-component" />
@@ -141,7 +155,7 @@
 <script>
 import { ref, computed } from 'vue';
 import axios from 'axios';
-import { QUERY_URL,SUGGESTION_URL } from "@/api";
+import { QUERY_URL,SUGGESTION_URL,TEMPLATES_URL  } from "@/api";
 import * as XLSX from 'xlsx';
 import LineChart from '@/components/LineChart.vue'
 import BarChart from '@/components/BarChart.vue'
@@ -162,6 +176,7 @@ export default {
     const suggestionLoading = ref(false);
     const queryLoading = ref(false);
     // 智能提示候选表名
+    const history = ref([]);               // ← 保存历史记录
     const suggestions = ref([]);
     const suggestionText = ref(''); // 智能提示文本
     const tableHeaders = computed(() => {
@@ -173,16 +188,7 @@ export default {
 
     // 常用查询模板示例数组（根据实际业务调整模板内容）
     const queryTemplates = ref([
-      "SELECT 产品名称, 单价 FROM 产品 WHERE 库存数量 > 100",
-      "SELECT c.客户名称, COUNT(o.订单编号) AS 订单数量, SUM(o.订单总额) AS 订单总额 FROM 客户 c LEFT JOIN 订单 o ON c.客户编号 = o.客户编号 GROUP BY c.客户名称;",
-      "SELECT * FROM 订单 WHERE 订单日期 BETWEEN '2025-04-01' AND '2025-04-09'",
-      "使用“采购明细详情”视图，筛选明细总额>10000.00的记录，提取产品名称和数量。",
-      "我想查找男性员工中出生日期在1985-03-15以后人的所有信息",
-      "统计每个客户的订单数量和订单总额。",
-      "我想查找所有产品的信息",
-      "列出所有员工的姓名、所在部门的名称和部门位置。",
-      "I would like to find information on all products",
-      "I would like to find all the customer names and contact numbers",
+
     ]);
 
     // 点击常用模板时自动填充到查询输入框
@@ -224,7 +230,17 @@ export default {
         const resp = await axios.post(QUERY_URL, { sentence: sentence.value });
         if (resp.data.suggestions) suggestions.value = resp.data.suggestions;
         else if (resp.data.suggestionText) suggestionText.value = resp.data.suggestionText;
-        else result.value = resp.data;
+        else {
+          result.value = resp.data;
+          // 保存历史：自然语言 + SQL
+          history.value.unshift({
+          query: sentence.value,
+          sql: resp.data.sql,
+          result: resp.data.result,
+          headers: resp.data.headers  // ← 一并保存 result 数组
+          });
+        }
+
       } catch (err) {
         error.value = err.response?.data?.detail || err.message;
       } finally {
@@ -232,7 +248,15 @@ export default {
         queryLoading.value = false;
       }
     };
-
+    // 点击历史项，加载到当前输入和结果
+    const loadHistory = (h) => {
+        sentence.value = h.query;
+        result.value = {
+        sql: h.sql,
+        result: h.result,
+        headers: h.headers      // ← 恢复表头
+        };
+    };
     // 导出 Excel 的方法（保持原来逻辑）
     const exportToExcel = () => {
       if (!result.value || !tableHeaders.value.length) return;
@@ -248,6 +272,24 @@ export default {
       const workbook = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(workbook, worksheet, "查询结果");
       XLSX.writeFile(workbook, `查询结果_${new Date().toLocaleString()}.xlsx`);
+    };
+    const templateLoading = ref(false);
+
+    const generateTemplates = async () => {
+    templateLoading.value = true;
+    try {
+      const resp = await axios.post(TEMPLATES_URL, {}); // 新增 api 常量
+      // 将返回的 templates 一条条插入到 queryTemplates
+      resp.data.templates.forEach(tpl => {
+        if (!queryTemplates.value.includes(tpl)) {
+          queryTemplates.value.unshift(tpl);
+        }
+      });
+      } catch (e) {
+      error.value = e.response?.data?.detail || e.message;
+    } finally {
+     templateLoading.value = false;
+    }
     };
 
 
@@ -404,6 +446,10 @@ export default {
       selectedPieField,
       chartData,
       currentChartComponent,
+      history,
+      loadHistory,
+      templateLoading,
+      generateTemplates
     };
   }
 };
@@ -532,6 +578,43 @@ export default {
 .fade-leave-active { transition: opacity 0.3s; }
 .fade-enter-from,
 .fade-leave-to { opacity: 0; }
+.sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  width: 300px;
+}
+.history-aside {
+  max-height: calc(100vh - 200px);
+  overflow-y: auto;
+}
+.history-aside h3 {
+  margin-bottom: 12px;
+  color: #00796b;
+}
+.history-aside ul {
+  list-style: none;
+  padding: 0;
+}
+.history-aside li {
+  padding: 8px;
+  border-bottom: 1px solid #eee;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.history-aside li:hover {
+  background: #f0f7ff;
+}
+.hist-query {
+  font-weight: bold;
+}
+.hist-sql {
+  font-family: monospace;
+  font-size: 0.85rem;
+  color: #555;
+  margin-top: 4px;
+}
+
 </style>
 
 

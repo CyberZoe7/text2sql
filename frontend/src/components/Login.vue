@@ -2,6 +2,17 @@
   <div id="app">
     <div class="login-container">
       <h2 class="title">欢迎登录</h2>
+
+      <!-- 顶部次级链接 -->
+      <div class="top-actions">
+        <button type="button" class="link-btn small" @click="toModifyPermission">
+          修改权限
+        </button>
+        <button type="button" class="link-btn small" @click="toConnectDB">
+          选择数据库
+        </button>
+      </div>
+
       <form @submit.prevent="handleLogin" class="login-form">
         <div class="input-group">
           <label for="username">用户名</label>
@@ -25,11 +36,12 @@
           />
         </div>
 
+        <!-- 主操作按钮 -->
         <div class="button-group">
           <button type="submit" class="btn primary">登录</button>
-          <button type="button" class="btn secondary" @click="toRegister">注册</button>
-          <button type="button" class="btn secondary" @click="toModifyPermission">修改权限</button>
-          <button type="button" class="btn secondary" @click="toConnectDB">选择数据库</button>
+          <button type="button" class="btn secondary" @click="toRegister">
+            注册
+          </button>
         </div>
 
         <div class="extra-actions">
@@ -171,12 +183,32 @@ export default {
   outline: none;
   border-color: #00796b;
 }
+/* 顶部次级链接：放在标题下方，右对齐 */
+.top-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-bottom: 16px;
+}
 
+/* 小号链接样式，跟忘记密码保持一致，但字体更小 */
+.link-btn.small {
+  font-size: 0.85rem;
+  color: #00796b;
+}
+.link-btn.small:hover {
+  color: #004d40;
+}
 /* 按钮组 */
+
+/* 主操作按钮组 */
 .button-group {
   display: flex;
   gap: 10px;
-  margin-bottom: 15px;
+  margin: 20px 0;
+}
+.button-group .btn {
+  flex: 1;
 }
 .btn {
   flex: 1;
