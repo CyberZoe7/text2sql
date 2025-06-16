@@ -90,7 +90,7 @@ class ModifyPermissionRequest(BaseModel):
     secret_key: str
 
 class DBConnectRequest(BaseModel):
-    db_type: str = Field(..., pattern="^(mysql|postgresql)$")
+    db_type: str = Field(..., pattern="^(mysql|postgresql|sqlserver)$")
     host: str
     port: int
     username: str
@@ -110,12 +110,19 @@ async def connect_db(req: DBConnectRequest):
             f"mysql+mysqlconnector://{req.username}:{req.password}"
             f"@{req.host}:{req.port}/{req.database}?charset=utf8mb4"
         )
-    else:
+    elif req.db_type == "postgresql":
         url = (
             f"postgresql+psycopg2://{req.username}:{req.password}"
             f"@{req.host}:{req.port}/{req.database}"
         )
-
+    else:  # sqlserver
+        # 注意：URL 中的 driver 名称要进行 URL 编码
+         from urllib.parse import quote_plus
+         driver = quote_plus("ODBC Driver 17 for SQL Server")
+         url = (
+             f"mssql+pyodbc://{req.username}:{req.password}"
+             f"@{req.host}:{req.port}/{req.database}?driver={driver}"
+         )
     # 测试连接
     try:
         tmp_engine = create_engine(url, pool_pre_ping=True)

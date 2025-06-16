@@ -13,6 +13,9 @@
             <label>
               <input type="radio" value="postgresql" v-model="dbType" /> PostgreSQL
             </label>
+             <label>
+               <input type="radio" value="sqlserver" v-model="dbType" /> SQL Server
+             </label>
           </div>
         </div>
 
@@ -117,7 +120,9 @@ export default {
   watch: {
     // 根据类型自动填端口
     dbType(val) {
-      this.port = val === "mysql" ? 3306 : 5432;
+        if (val === "mysql") this.port = 3306;
+        else if (val === "postgresql") this.port = 5432;
+        else if (val === "sqlserver") this.port = 1433;
     }
   },
   methods: {
