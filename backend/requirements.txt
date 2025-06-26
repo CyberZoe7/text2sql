@@ -1,9 +1,32 @@
-fastapi
-uvicorn
-jinja2
-requests
-pandas
-sqlalchemy
-mysql-connector-python
-python-multipart
-fastapi[all]
+# FastAPI Web 框架
+fastapi>=0.95.0,<1.0.0
+
+# Uvicorn ASGI 服务器
+uvicorn[standard]>=0.23.0,<1.0.0
+
+# 数据库 ORM 与驱动
+SQLAlchemy>=2.0.0,<2.1.0
+mysql-connector-python>=8.0.33,<9.0.0      # MySQL 驱动
+psycopg2-binary>=2.9.7,<3.0.0             # PostgreSQL 驱动
+pyodbc>=4.0.35,<5.0.0                     # SQL Server 驱动
+
+# HTTP 客户端
+requests>=2.31.0,<3.0.0
+
+# 数据处理
+pandas>=2.0.3,<3.0.0
+
+# Pydantic 用于数据模型验证（FastAPI 已依赖，但声明一下方便锁版本）
+pydantic>=1.10.12,<2.0.0
+
+# JWT 签发与验证
+PyJWT>=2.8.0,<3.0.0
+
+# CORS 中间件（已包含在 fastapi，但可单独声明）
+starlette>=0.27.0,<1.0.0
+
+# 可选：如果你在打包时需要读取配置、环境变量
+python-dotenv>=1.0.0,<2.0.0
+
+# typing 扩展（可选）
+typing_extensions>=4.9.0,<5.0.0
