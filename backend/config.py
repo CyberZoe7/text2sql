@@ -6,7 +6,6 @@ from pathlib import Path
 from datetime import datetime, timezone, timedelta
 
 # —— 1. 基本配置 —— #
-DB_URL = "mysql+mysqlconnector://root:hqm111222333@localhost/小型企业数据库"
 TEXT2SQL_API_URL = "https://api.siliconflow.cn/v1/chat/completions"
 TEXT2SQL_API_TOKEN = "sk-dguldiyzvpupvknhgyvyxnrhtguktyzjmvvjbbzbbedfygvk"
 HOST_URL = "localhost"

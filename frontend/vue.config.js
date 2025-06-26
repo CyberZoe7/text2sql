@@ -9,8 +9,8 @@ module.exports = defineConfig({
 module.exports = {
   devServer: {
     https: {
-      key: fs.readFileSync(path.resolve(__dirname, '../backend/server.key')),
-      cert: fs.readFileSync(path.resolve(__dirname, '../backend/server.crt')),
+      key: fs.readFileSync(path.resolve(__dirname, './server/server.key')),
+      cert: fs.readFileSync(path.resolve(__dirname, './server/server.crt')),
     },
     // 注意：必须使用证书中对应的域名来启动前端服务
     host: "0.0.0.0",
@@ -24,4 +24,6 @@ module.exports = {
       }
     }
   },
+  publicPath: './',      // 打包后所有静态资源都用相对路径
+  assetsDir: 'static'    // 可选：把 js/css 放到 web/static 目录下
 };

@@ -3,13 +3,15 @@ from fastapi import FastAPI, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
 import requests
 import pandas as pd
-from sqlalchemy import create_engine, text
+from sqlalchemy import create_engine, text,MetaData, inspect
 from pydantic import BaseModel, Field
 from config import (TEXT2SQL_API_URL,TEXT2SQL_API_TOKEN,HOST_URL,SECRET_KEY,ALGORITHM,TOKEN_EXPIRE_HOURS)
 import jwt
+import json
 from datetime import datetime, timedelta
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 import re
+import sys,os
 # --- Bearer 认证实例 ---
 security = HTTPBearer()
 
@@ -41,6 +43,10 @@ app = FastAPI(
 
 # --- CORS 配置 ---
 origins = [
+    "https://localhost:8000",
+    f"https://{HOST_URL}:8000",
+    "http://localhost:8000",
+    f"http://{HOST_URL}:8000",
     "http://localhost:8080",
     f"http://{HOST_URL}:8080",
     "https://localhost:8080",
@@ -50,19 +56,31 @@ origins = [
 engine = None
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_origins=['*'],            # 或仅 http://127.0.0.1:8000
+    allow_methods=['*'],
+    allow_headers=['*'],
 )
 
+# 运行时资源目录：如果被 PyInstaller 打包，资源会在 sys._MEIPASS
+if getattr(sys, 'frozen', False):
+    BASE_DIR = sys._MEIPASS
+else:
+    BASE_DIR = os.path.abspath(os.path.dirname(__file__))
+
+# 证书路径
+CERT_FILE = os.path.join(BASE_DIR, 'server.crt')
+KEY_FILE  = os.path.join(BASE_DIR, 'server.key')
+# 后面用到的模版
+TPL1 = os.path.join(BASE_DIR, 'prompt_template.txt')
+TPL2 = os.path.join(BASE_DIR, 'prompt_template_2.txt')
+TPL3 = os.path.join(BASE_DIR, 'prompt_template_3.txt')
+# 存储数据库结构的文件
+DB_SCHEMA_FILE = os.path.join(BASE_DIR, 'database.txt')
 # --- 初始化同步数据库引擎 ---
 
 # 在文件顶端定义你所有可查询的表名列表
 TABLE_NAMES = [
-    "部门", "员工", "客户", "产品",
-    "订单", "订单明细", "供应商",
-    "采购订单", "采购明细", "管理员信息"
 ]
 
 
@@ -97,14 +115,18 @@ class DBConnectRequest(BaseModel):
     password: str
     database: str
 
+engine = None
+SCHEMA = {}
+
 @app.post("/api/db/connect")
 async def connect_db(req: DBConnectRequest):
     """
-    测试连接并在全局 engine 中保存可用的数据库引擎。
+    测试连接并在全局 engine 中保存可用的数据库引擎，
+    同时将所有表和视图的字段信息写入 backend/database.txt。
     """
-    global engine
+    global engine, SCHEMA
 
-    # 拼接 SQLAlchemy URL
+    # --- 1. 拼接 SQLAlchemy URL ---
     if req.db_type == "mysql":
         url = (
             f"mysql+mysqlconnector://{req.username}:{req.password}"
@@ -116,14 +138,14 @@ async def connect_db(req: DBConnectRequest):
             f"@{req.host}:{req.port}/{req.database}"
         )
     else:  # sqlserver
-        # 注意：URL 中的 driver 名称要进行 URL 编码
-         from urllib.parse import quote_plus
-         driver = quote_plus("ODBC Driver 17 for SQL Server")
-         url = (
-             f"mssql+pyodbc://{req.username}:{req.password}"
-             f"@{req.host}:{req.port}/{req.database}?driver={driver}"
-         )
-    # 测试连接
+        from urllib.parse import quote_plus
+        driver = quote_plus("ODBC Driver 17 for SQL Server")
+        url = (
+            f"mssql+pyodbc://{req.username}:{req.password}"
+            f"@{req.host}:{req.port}/{req.database}?driver={driver}"
+        )
+
+    # --- 2. 测试连接 ---
     try:
         tmp_engine = create_engine(url, pool_pre_ping=True)
         with tmp_engine.connect() as conn:
@@ -131,8 +153,46 @@ async def connect_db(req: DBConnectRequest):
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"连接失败：{e}")
 
-    # 连接成功后，保存到全局 engine
+    # --- 3. 反射表和视图结构 ---
+    inspector = inspect(tmp_engine)
+    schema: dict[str, list[str]] = {}
+
+    # 3.1 普通表
+    for tbl in inspector.get_table_names():
+        cols = inspector.get_columns(tbl)
+        schema[tbl] = [c["name"] for c in cols]
+
+    # 3.2 视图
+    try:
+        views = inspector.get_view_names()
+    except NotImplementedError:
+        # PostgreSQL/MySQL 也可以查询 information_schema
+        views = [
+            row[0]
+            for row in tmp_engine.execute(text(
+                "SELECT table_name FROM information_schema.views "
+                "WHERE table_schema = :db"
+            ), {"db": req.database})
+        ]
+
+    for vw in views:
+        cols = inspector.get_columns(vw)
+        schema[vw] = [c["name"] for c in cols]
+
+    # --- 4. 写入本地文件 backend/database.txt ---
+    # 文件路径相对于当前 main.py 文件目录
+    base_dir = os.path.abspath(os.path.dirname(__file__))
+    out_path = os.path.join(base_dir, "database.txt")
+    try:
+        with open(out_path, "w", encoding="utf-8") as f:
+            json.dump(schema, f, ensure_ascii=False, indent=2)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"写入 schema 文件失败：{e}")
+
+    # --- 5. 保存全局 engine 与 SCHEMA 并返回 ---
     engine = tmp_engine
+    SCHEMA = schema
+
     return {"success": True, "db_url": url}
 
 
@@ -277,15 +337,27 @@ def get_sql_from_text(sentence: str) -> str:
     调用外部 Text2SQL 接口，将自然语言转换为可执行 SQL。
     """
     try:
-        with open("prompt_template.txt", "r", encoding="utf-8") as f:
+        with open(TPL1, "r", encoding="utf-8") as f:
             template = f.read().strip()
     except FileNotFoundError:
         raise HTTPException(status_code=500, detail="prompt_template.txt 未找到")
+    # 2. 读取 database.txt，拼出“数据库结构”描述
+    try:
+        with open(DB_SCHEMA_FILE, "r", encoding="utf-8") as f:
+            schema: dict = json.load(f)
+    except FileNotFoundError:
+        raise HTTPException(status_code=500, detail="database.txt 未找到，请先调用 /api/db/connect")
+    except json.JSONDecodeError as e:
+        raise HTTPException(status_code=500, detail=f"解析 database.txt 失败：{e}")
+    # 将 schema 转为一段自然语言：
+    #   表1(字段A,字段B,...); 表2(...); 视图1(...); ...
+    parts = []
+    for tbl, cols in schema.items():
+        cols_str = ", ".join(cols)
+        parts.append(f"{tbl}({cols_str})")
+    database_desc = "；数据库中包含以下表和视图及其字段：\n" + "；\n".join(parts) + "；\n"
 
-    extra = (
-        "。(请只输出可直接执行的 SQL，不要包含前缀、注释或代码块)"
-    )
-    full_prompt = f"{template}{sentence}{extra}"
+    full_prompt = f"{template}{sentence}{database_desc}"
 
     resp = requests.post(
         TEXT2SQL_API_URL,
@@ -316,13 +388,27 @@ def get_sql_from_text(sentence: str) -> str:
 def get_suggestion_from_text(sentence: str) -> str:
 
     try:
-        with open("prompt_template_2.txt", "r", encoding="utf-8") as f:
+        with open(TPL2, "r", encoding="utf-8") as f:
             template = f.read().strip()
     except FileNotFoundError:
         raise HTTPException(status_code=500, detail="prompt_template_2.txt 未找到")
+    # 2. 读取 database.txt，拼出“数据库结构”描述
+    try:
+        with open(DB_SCHEMA_FILE, "r", encoding="utf-8") as f:
+            schema: dict = json.load(f)
+    except FileNotFoundError:
+        raise HTTPException(status_code=500, detail="database.txt 未找到，请先调用 /api/db/connect")
+    except json.JSONDecodeError as e:
+        raise HTTPException(status_code=500, detail=f"解析 database.txt 失败：{e}")
+    # 将 schema 转为一段自然语言：
+    #   表1(字段A,字段B,...); 表2(...); 视图1(...); ...
+    parts = []
+    for tbl, cols in schema.items():
+        cols_str = ", ".join(cols)
+        parts.append(f"{tbl}({cols_str})")
+    database_desc = "；数据库中包含以下表和视图及其字段：\n" + "；\n".join(parts) + "；\n"
 
-
-    full_prompt = f"{template}{sentence}"
+    full_prompt = f"{template}{sentence}{database_desc}"
 
     resp = requests.post(
         TEXT2SQL_API_URL,
@@ -397,11 +483,6 @@ async def query_database(query: QueryRequest, token_payload: dict = Depends(veri
     sentence = query.sentence or ""
     low = sentence.lower()
 
-    # 智能提示：有查询意图但没出现任何表名
-    has_query_kw = any(k in low for k in ["查询", "查找", "select"])
-    matched = [t for t in TABLE_NAMES if t in sentence]
-    if has_query_kw and not matched:
-        return {"suggestions": TABLE_NAMES}
 
     # 权限校验
     perm = token_payload["permission"]
@@ -527,16 +608,31 @@ async def generate_templates(
     token_payload: dict = Depends(verify_token)
 ):
     try:
-        with open("prompt_template_3.txt", "r", encoding="utf-8") as f:
+        with open(TPL3, "r", encoding="utf-8") as f:
             template = f.read().strip()
     except FileNotFoundError:
         raise HTTPException(status_code=500, detail="prompt_template_3.txt 未找到")
+    # 2. 读取 database.txt，拼出“数据库结构”描述
+    try:
+        with open(DB_SCHEMA_FILE, "r", encoding="utf-8") as f:
+            schema: dict = json.load(f)
+    except FileNotFoundError:
+        raise HTTPException(status_code=500, detail="database.txt 未找到，请先调用 /api/db/connect")
+    except json.JSONDecodeError as e:
+        raise HTTPException(status_code=500, detail=f"解析 database.txt 失败：{e}")
+    # 将 schema 转为一段自然语言：
+    #   表1(字段A,字段B,...); 表2(...); 视图1(...); ...
+    parts = []
+    for tbl, cols in schema.items():
+        cols_str = ", ".join(cols)
+        parts.append(f"{tbl}({cols_str})")
+    database_desc = "；数据库中包含以下表和视图及其字段：\n" + "；\n".join(parts) + "；\n"
 
+    prompt = f"{template}{database_desc}"
     # """
     # 调用大模型，自动生成查询模板，每行一句并用双引号包裹，返回模板列表。
     # """
     # 可根据业务场景定制 prompt
-    prompt = template
     try:
         resp = requests.post(
             TEXT2SQL_API_URL,
@@ -573,14 +669,18 @@ async def generate_templates(
     return {"templates": templates}
 
 
+
 # --- 启动 Uvicorn ---
 if __name__ == "__main__":
+    # 如果是 PyInstaller 打包后的可执行文件（sys.frozen == True），
+    # 就不要用 reload，也不要监听 watchfiles
+    is_packaged = getattr(sys, "frozen", False)
     uvicorn.run(
-        "main:app",
+        "main:app",             # 假设你的 FastAPI app 在 main.py 的 app 变量里
         host=HOST_URL,
         port=443,
-        ssl_certfile="server.crt",
-        ssl_keyfile="server.key",
-        reload=True
-
+        ssl_certfile=CERT_FILE,
+        ssl_keyfile=KEY_FILE,
+        reload=True,  # 打包时设为 False，本地开发时你可以手动设 True
+        # watch_dirs=None       # (可选) 如果你手动传这个，就完全不监听任何目录
     )
